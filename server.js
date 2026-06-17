@@ -192,6 +192,6 @@ process.stdin.on("data", (data) => {
     parser.emit("data", input + "\n");
 });
 
-app.listen(3000, () => {
-    console.log("Servidor rodando na porta 3000");
+app.listen(3000, '0.0.0.0', () => {
+    console.log("Servidor rodando na porta 3000 e aceitando conexões externas");
 });
