@@ -136,13 +136,15 @@ app.post("/aula/iniciar", (req, res) => {
 });
 
 app.post("/cadastro/iniciar", (req, res) => {
-    console.log("Recebida solicitação de modo cadastro.");
+    console.log("Comando recebido: MODO_CADASTRO");
     
-    // 1. Envia o comando para o Arduino sem ficar esperando (sem callback travante)
-    portaArduino.write(JSON.stringify({ comando: "MODO_CADASTRO" }) + "\n");
+    // Dispara o comando serial sem aguardar o retorno
+    portaArduino.write(JSON.stringify({ comando: "MODO_CADASTRO" }) + "\n", (err) => {
+        if (err) console.error("Erro no write:", err.message);
+    });
     
-    // 2. Responde imediatamente ao navegador para destravar a tela
-    res.status(200).json({ mensagem: "Comando enviado para o Arduino." });
+    // Responde AGORA para o navegador, para evitar o "pending"
+    return res.status(200).json({ mensagem: "Comando enviado!" });
 });
 
 app.post("/cadastro/salvar", async (req, res) => {
