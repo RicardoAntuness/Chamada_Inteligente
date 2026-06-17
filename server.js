@@ -10,36 +10,28 @@ app.use(express.json());
 app.use(cors());
 
 const inicioAula = Date.now();
-// Objeto para controle de tempo de leitura por UID (Cooldown de 5 segundos)
-const cooldowns = {}; 
+// Objeto para controlar quem está "presente" na frente do sensor: { "UID": true }
+const ocupandoSensor = {}; 
 
 // ===============================
 // SERIAL ARDUINO
 // ===============================
 
 const portaArduino = new SerialPort({
-    path: "/dev/ttyACM0",
+    path: "/dev/ttyACM0", 
     baudRate: 9600
 });
 
 const parser = portaArduino.pipe(new ReadlineParser({ delimiter: '\n' }));
 
-portaArduino.on("open", () => {
-    console.log("Arduino conectado.");
-});
-
-portaArduino.on("error", (err) => {
-    console.error("Erro Serial:", err.message);
-});
+portaArduino.on("open", () => console.log("Arduino conectado."));
+portaArduino.on("error", (err) => console.error("Erro Serial:", err.message));
 
 function enviarComando(comando) {
     const json = JSON.stringify({ comando }) + "\n";
     portaArduino.write(json, (err) => {
-        if (err) {
-            console.error("Erro ao enviar comando:", err.message);
-        } else {
-            console.log("Comando enviado:", json.trim());
-        }
+        if (err) console.error("Erro ao enviar comando:", err.message);
+        else console.log("Comando enviado:", json.trim());
     });
 }
 
@@ -57,37 +49,35 @@ parser.on("data", async (linha) => {
         if (dados.uid) {
             const { uid, distancia } = dados;
 
-            // --- LÓGICA DE DEBOUNCE (5 segundos) ---
-            const agora = Date.now();
-            if (cooldowns[uid] && (agora - cooldowns[uid] < 5000)) {
-                console.log(`[IGNORADO] Leitura rápida demais para o UID: ${uid}`);
-                return; 
-            }
-            cooldowns[uid] = agora;
-            // ---------------------------------------
-
-            // 1. REGRA DA DISTÂNCIA
-            if (distancia < 8 || distancia > 12) {
-                console.log(`[NEGADO] Distância incorreta: ${distancia}cm.`);
-                enviarComando("NEGADO");
+            // 1. LÓGICA DE SAÍDA (O aluno se afastou do sensor, > 30cm)
+            if (distancia > 30) {
+                if (ocupandoSensor[uid]) {
+                    console.log(`[SAÍDA] Aluno ${uid} se afastou.`);
+                    delete ocupandoSensor[uid]; // Libera o UID para nova leitura futura
+                }
                 return;
             }
 
-            // 2. VERIFICA NO BANCO
-            const alunoCheck = await pool.query(
-                `SELECT id, nome FROM alunos WHERE uid = $1`, 
-                [uid]
-            );
+            // 2. LÓGICA DE ENTRADA (Zona de registro 8-12cm)
+            if (distancia >= 8 && distancia <= 12) {
+                // Se o aluno já está sendo processado, não faz nada
+                if (ocupandoSensor[uid]) return; 
 
-            if (alunoCheck.rows.length === 0) {
-                console.log(`[NEGADO] UID ${uid} não cadastrado.`);
-                enviarComando("NEGADO");
-                return;
+                // Valida no banco
+                const alunoCheck = await pool.query(
+                    `SELECT id, nome FROM alunos WHERE uid = $1`, [uid]
+                );
+
+                if (alunoCheck.rows.length === 0) {
+                    enviarComando("NEGADO");
+                    return;
+                }
+
+                // Marca como ocupando e registra presença
+                ocupandoSensor[uid] = true;
+                console.log(`[VALIDADO] Aluno ${alunoCheck.rows[0].nome}. Registrando...`);
+                await registrarPresencaMecanismo(uid);
             }
-
-            // 3. VALIDADO
-            console.log(`[VALIDADO] Aluno ${alunoCheck.rows[0].nome}. Registrando...`);
-            await registrarPresencaMecanismo(uid);
         }
     } catch (error) {
         console.error("Erro ao processar dados seriais:", error.message);
@@ -109,7 +99,7 @@ async function registrarPresencaMecanismo(uid) {
 }
 
 // ===============================
-// ROTAS DE CADASTRO
+// ROTAS DE CADASTRO E PRESENÇA
 // ===============================
 
 app.post("/cadastro/iniciar", (req, res) => {
@@ -129,10 +119,6 @@ app.post("/cadastro/salvar", async (req, res) => {
     }
 });
 
-// ===============================
-// ROTA HTTP DE PRESENÇA
-// ===============================
-
 app.post("/presenca", async (req, res) => {
     try {
         const { uid } = req.body;
@@ -144,10 +130,6 @@ app.post("/presenca", async (req, res) => {
     }
 });
 
-// ===============================
-// LISTAR PRESENÇAS
-// ===============================
-
 app.get("/presencas", async (req, res) => {
     try {
         const result = await pool.query(`SELECT * FROM presencas ORDER BY id DESC`);
@@ -158,7 +140,7 @@ app.get("/presencas", async (req, res) => {
 });
 
 // ===============================
-// SIMULADOR DE ARDUINO (VIA TECLADO)
+// SIMULADOR VIA TECLADO
 // ===============================
 process.stdin.on("data", (data) => {
     const input = data.toString().trim();
