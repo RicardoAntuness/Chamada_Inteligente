@@ -138,11 +138,11 @@ app.post("/aula/iniciar", (req, res) => {
 app.post("/cadastro/iniciar", (req, res) => {
     console.log("Recebida solicitação de modo cadastro.");
     
-    // Dispara o comando sem aguardar o callback do write travar a resposta
+    // 1. Envia o comando para o Arduino sem ficar esperando (sem callback travante)
     portaArduino.write(JSON.stringify({ comando: "MODO_CADASTRO" }) + "\n");
     
-    // Responde imediatamente ao navegador, antes mesmo do Arduino processar
-    res.json({ mensagem: "Comando enviado para o Arduino." });
+    // 2. Responde imediatamente ao navegador para destravar a tela
+    res.status(200).json({ mensagem: "Comando enviado para o Arduino." });
 });
 
 app.post("/cadastro/salvar", async (req, res) => {
