@@ -49,6 +49,11 @@ function enviarComando(comando) {
 // ==========================================
 
 parser.on("data", async (linha) => {
+    console.log("=================================");
+    console.log("DADO RECEBIDO DO ARDUINO:");
+    console.log(linha);
+    console.log("=================================");
+
     try {
         const texto = linha.trim();
         if (!texto.startsWith("{")) return; 
