@@ -6,12 +6,20 @@ const { ReadlineParser } = require("@serialport/parser-readline");
 
 const app = express();
 
+// CONFIGURAÇÃO DE CORS - Cole exatamente isto:
+app.use(cors({
+    origin: "http://localhost:5173", // A porta exata do seu Vite
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true
+}));
+
 app.use(express.json());
-app.use(cors());
+
+// ... resto do seu código (rotas, etc) ...
 
 // Variável mutável para controlar o início da aula
 let inicioAula = null; 
-// Objeto para controlar quem está "presente" na frente do sensor: { "UID": true }
+let ultimaTagLida = null;
 const ocupandoSensor = {}; 
 
 // ===============================
@@ -19,7 +27,7 @@ const ocupandoSensor = {};
 // ===============================
 
 const portaArduino = new SerialPort({
-    path: "/dev/ttyACM0", 
+    path: "/dev/ttyACM0", // <--- Padrão Linux para Arduino na Raspberry
     baudRate: 9600
 });
 
@@ -51,7 +59,6 @@ parser.on("data", async (linha) => {
             ultimaTagLida = { uid: dados.uid };
             const { uid, distancia } = dados;
 
-            // 1. LÓGICA DE SAÍDA (O aluno se afastou do sensor, > 30cm)
             if (distancia > 30) {
                 if (ocupandoSensor[uid]) {
                     console.log(`[SAÍDA] Aluno ${uid} se afastou.`);
@@ -60,11 +67,9 @@ parser.on("data", async (linha) => {
                 return;
             }
 
-            // 2. LÓGICA DE ENTRADA (Zona de registro: menor que 10cm)
             if (distancia > 0 && distancia < 10) {
                 if (ocupandoSensor[uid]) return; 
 
-                // Valida no banco
                 const alunoCheck = await pool.query(
                     `SELECT id, nome FROM alunos WHERE uid = $1`, [uid]
                 );
@@ -74,7 +79,6 @@ parser.on("data", async (linha) => {
                     return;
                 }
 
-                // Marca como ocupando e registra presença
                 ocupandoSensor[uid] = true;
                 console.log(`[VALIDADO] Aluno ${alunoCheck.rows[0].nome}. Registrando...`);
                 await registrarPresencaMecanismo(uid);
@@ -109,7 +113,22 @@ async function registrarPresencaMecanismo(uid) {
 // ROTAS DE CADASTRO E PRESENÇA
 // ===============================
 
-// Nova Rota para iniciar a aula (chame via POST do seu Front)
+app.post("/login", async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        
+        // Exemplo: buscando no banco de dados (se você tiver uma tabela 'usuarios')
+        // Se ainda não tiver tabela de usuários, adicione uma lógica de teste:
+        if (email === "ana@escola.edu.br" && password === "aluno123") {
+            res.json({ success: true, user: { name: "Ana Lima", role: "aluno" } });
+        } else {
+            res.status(401).json({ erro: "E-mail ou senha incorretos." });
+        }
+    } catch (error) {
+        res.status(500).json({ erro: "Erro no servidor." });
+    }
+});
+
 app.post("/aula/iniciar", (req, res) => {
     inicioAula = Date.now();
     console.log("Aula iniciada em:", new Date(inicioAula).toLocaleTimeString());
@@ -143,12 +162,10 @@ app.post("/presenca", async (req, res) => {
         res.status(500).json({ erro: error.message });
     }
 });
-// No parser.on("data", ...):
-// Quando o Arduino ler o UID, atualize: ultimaTagLida = { uid: dados.uid };
 
 app.get("/cadastro/status", (req, res) => {
     res.json(ultimaTagLida || { uid: null });
-    ultimaTagLida = null; // Limpa após ler
+    ultimaTagLida = null; 
 });
 
 app.get("/alunos", async (req, res) => {
@@ -165,9 +182,6 @@ app.get("/presencas", async (req, res) => {
     }
 });
 
-// ===============================
-// SIMULADOR VIA TECLADO
-// ===============================
 process.stdin.on("data", (data) => {
     const input = data.toString().trim();
     parser.emit("data", input + "\n");
