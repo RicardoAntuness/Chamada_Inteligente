@@ -9,7 +9,8 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const inicioAula = Date.now();
+// Variável mutável para controlar o início da aula
+let inicioAula = null; 
 // Objeto para controlar quem está "presente" na frente do sensor: { "UID": true }
 const ocupandoSensor = {}; 
 
@@ -53,14 +54,13 @@ parser.on("data", async (linha) => {
             if (distancia > 30) {
                 if (ocupandoSensor[uid]) {
                     console.log(`[SAÍDA] Aluno ${uid} se afastou.`);
-                    delete ocupandoSensor[uid]; // Libera o UID para nova leitura futura
+                    delete ocupandoSensor[uid];
                 }
                 return;
             }
 
-            // 2. LÓGICA DE ENTRADA (Zona de registro 8-12cm)
-            if (distancia >= 8 && distancia <= 12) {
-                // Se o aluno já está sendo processado, não faz nada
+            // 2. LÓGICA DE ENTRADA (Zona de registro: menor que 10cm)
+            if (distancia > 0 && distancia < 10) {
                 if (ocupandoSensor[uid]) return; 
 
                 // Valida no banco
@@ -85,6 +85,12 @@ parser.on("data", async (linha) => {
 });
 
 async function registrarPresencaMecanismo(uid) {
+    if (!inicioAula) {
+        console.log("Tentativa de registro antes de iniciar a aula.");
+        enviarComando("NEGADO");
+        return { erro: "Aula não iniciada" };
+    }
+
     const segundos = Math.floor((Date.now() - inicioAula) / 1000);
     const faltas = Math.min(Math.floor(segundos / 25), 4);
     const status = faltas === 0 ? "PRESENTE" : "ATRASADO";
@@ -101,6 +107,13 @@ async function registrarPresencaMecanismo(uid) {
 // ===============================
 // ROTAS DE CADASTRO E PRESENÇA
 // ===============================
+
+// Nova Rota para iniciar a aula (chame via POST do seu Front)
+app.post("/aula/iniciar", (req, res) => {
+    inicioAula = Date.now();
+    console.log("Aula iniciada em:", new Date(inicioAula).toLocaleTimeString());
+    res.json({ mensagem: "Aula iniciada com sucesso!", inicio: inicioAula });
+});
 
 app.post("/cadastro/iniciar", (req, res) => {
     enviarComando("MODO_CADASTRO");
