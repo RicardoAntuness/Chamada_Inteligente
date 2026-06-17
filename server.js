@@ -8,7 +8,7 @@ const app = express();
 
 // CONFIGURAÇÃO DE CORS - Cole exatamente isto:
 app.use(cors({
-    origin: "http://10.1.24.27:3000", // A porta exata do seu Vite
+    origin: "http://10.1.24.27:5174", // A porta exata do seu Vite
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
 }));
