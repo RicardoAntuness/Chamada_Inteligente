@@ -2,6 +2,7 @@ services:
   postgres:
     image: postgres:16
     container_name: chamada-db
+    restart: always
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin
@@ -10,21 +11,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
-  api:
-    build: .
-    container_name: chamada-api
-    ports:
-      - "3000:3000"
-    environment:
-      DATABASE_URL: postgres://admin:admin@postgres:5432/chamada
-    depends_on:
-      - postgres
-    volumes:
-      - .:/app
-    # Mapeia a porta USB da Raspberry para dentro do container
-    devices:
-      - "/dev/ttyACM0:/dev/ttyACM0"
 
 volumes:
   postgres_data:
