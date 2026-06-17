@@ -48,6 +48,7 @@ parser.on("data", async (linha) => {
         const dados = JSON.parse(texto);
         
         if (dados.uid) {
+            ultimaTagLida = { uid: dados.uid };
             const { uid, distancia } = dados;
 
             // 1. LÓGICA DE SAÍDA (O aluno se afastou do sensor, > 30cm)
@@ -141,6 +142,18 @@ app.post("/presenca", async (req, res) => {
         enviarComando("NEGADO");
         res.status(500).json({ erro: error.message });
     }
+});
+// No parser.on("data", ...):
+// Quando o Arduino ler o UID, atualize: ultimaTagLida = { uid: dados.uid };
+
+app.get("/cadastro/status", (req, res) => {
+    res.json(ultimaTagLida || { uid: null });
+    ultimaTagLida = null; // Limpa após ler
+});
+
+app.get("/alunos", async (req, res) => {
+    const result = await pool.query(`SELECT * FROM alunos`);
+    res.json(result.rows);
 });
 
 app.get("/presencas", async (req, res) => {
