@@ -53,6 +53,7 @@
         .mini-tabela { font-size: 0.9em; width: 100%; margin-top: 8px; }
         .mini-tabela th { background: #34495e; padding: 8px; }
         .mini-tabela td { padding: 8px; background: #fafafa; }
+        .nota-regra { margin-top: 10px; padding: 10px; background-color: #fcf8e3; border-left: 4px solid #f39c12; font-size: 0.9em; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -120,39 +121,49 @@
             <table class="mini-tabela">
                 <thead>
                     <tr>
-                        <th>Tempo Decorrido</th>
                         <th>Bloco Vigente</th>
-                        <th>Penalidade na Entrada</th>
-                        <th>Penalidade se Sair Nesse Bloco</th>
+                        <th>Tempo Decorrido</th>
+                        <th>Penalidade na Entrada (Atraso)</th>
+                        <th>Penalidade se Sair Nesse Bloco (Abandono)</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td><b>0s até 24s</b></td>
                         <td><span class="badge-presente">Bloco 1</span></td>
+                        <td><b>0s até 24s</b></td>
                         <td>0 faltas (Presente)</td>
-                        <td>4 faltas (Falta Total)</td>
+                        <td>+4 faltas (Perde a aula toda)</td>
                     </tr>
                     <tr>
-                        <td><b>25s até 49s</b></td>
                         <td><span class="badge-atrasado" style="background:var(--warning)">Bloco 2</span></td>
+                        <td><b>25s até 49s</b></td>
                         <td>1 falta (Atrasado)</td>
-                        <td>3 faltas</td>
+                        <td>+3 faltas (Perde os blocos 2, 3 e 4)</td>
                     </tr>
                     <tr>
-                        <td><b>50s até 74s</b></td>
                         <td><span class="badge-atrasado" style="background:var(--orange)">Bloco 3</span></td>
+                        <td><b>50s até 74s</b></td>
                         <td>2 faltas (Atrasado)</td>
-                        <td>2 faltas</td>
+                        <td>+2 faltas (Perde os blocos 3 e 4)</td>
                     </tr>
                     <tr>
-                        <td><b>75s até 99s</b></td>
                         <td><span class="badge-ausente">Bloco 4</span></td>
+                        <td><b>75s até 99s</b></td>
                         <td>3 faltas (Atrasado)</td>
-                        <td>1 falta</td>
+                        <td>+1 falta (Perde o bloco 4)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge-presente" style="background:#2c3e50">Fim de Aula</span></td>
+                        <td><b>&ge; 100s</b></td>
+                        <td>Entrada Bloqueada</td>
+                        <td>+0 faltas (Cumpriu até o fim)</td>
                     </tr>
                 </tbody>
             </table>
+            <div class="nota-regra">
+                <strong>⚠️ Regra do Sistema (Cálculo Acumulativo):</strong> 
+                <code>Faltas Totais = Penalidade de Entrada + Penalidade de Saída</code> <em>(Limitado ao teto máximo de 4 faltas).</em>
+            </div>
         </div>
     </div>
 
@@ -212,14 +223,12 @@
             }
         }
 
-        // NOVA FUNÇÃO UNIFICADA E INTELIGENTE
         async function capturarNovaTag() {
             const feedback = document.getElementById('cadastro-feedback');
             const btn = document.getElementById('btn-capturar');
-            document.getElementById('uid-input').value = ""; // Limpa anterior
+            document.getElementById('uid-input').value = ""; 
 
             try {
-                // 1. Avisa o Arduino para escutar
                 feedback.className = "text-muted";
                 feedback.innerText = "📡 Acionando Arduino...";
                 await fetch(`${API_URL}/cadastro/iniciar`, { method: 'POST' }); 
@@ -229,9 +238,8 @@
                 btn.innerText = "⏳ Aguardando leitura...";
                 btn.style.background = "#7f8c8d";
 
-                // 2. Inicia polling automático a cada 1.5s para capturar a resposta
                 let tentativas = 0;
-                const maxTentativas = 15; // Cancela após ~22 segundos sem tag
+                const maxTentativas = 15; 
 
                 const loopVerificacao = setInterval(async () => {
                     tentativas++;
@@ -243,7 +251,6 @@
                             clearInterval(loopVerificacao);
                             document.getElementById('uid-input').value = data.uid;
                             
-                            // Verifica duplicidade
                             const jaExiste = listaAlunosCache.some(aluno => aluno.uid.toUpperCase() === data.uid.toUpperCase());
                             
                             if (jaExiste || data.status === "NEGADO") {
