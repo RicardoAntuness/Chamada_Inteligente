@@ -1,524 +1,346 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel do Professor - Chamada Inteligente</title>
-    <style>
-        /* ============================================================
-           Design System — Chamada Inteligente
-           Paleta: dark navy + ciano + verde/vermelho semânticos
-           ============================================================ */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chamada Inteligente</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>" />
+  
+  <style>
+    /* ============================================================
+       Design System — Chamada Inteligente
+       Paleta: dark navy + ciano + verde/vermelho semânticos
+       Fonte: Inter & JetBrains Mono (Google Fonts)
+       ============================================================ */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 
-        :root {
-            --bg-base:        #0F172A;
-            --bg-surface:     #1E293B;
-            --bg-elevated:    #263348;
-            --bg-input:       #162032;
+    /* ── Tokens ─────────────────────────────────────────────── */
+    :root {
+      --bg-base:        #0F172A;
+      --bg-surface:     #1E293B;
+      --bg-elevated:    #263348;
+      --bg-input:       #162032;
 
-            --accent:         #38BDF8;
-            --accent-dim:     rgba(56, 189, 248, 0.15);
-            --accent-glow:    rgba(56, 189, 248, 0.35);
+      --accent:         #38BDF8;
+      --accent-dim:     rgba(56, 189, 248, 0.15);
+      --accent-glow:    rgba(56, 189, 248, 0.35);
 
-            --green:          #10B981;
-            --green-dim:      rgba(16, 185, 129, 0.15);
-            --red:            #EF4444;
-            --red-dim:        rgba(239, 68, 68, 0.15);
-            --yellow:         #F59E0B;
-            --yellow-dim:     rgba(245, 158, 11, 0.15);
-            --orange:         #D35400;
+      --green:          #10B981;
+      --green-dim:      rgba(16, 185, 129, 0.15);
+      --red:            #EF4444;
+      --red-dim:        rgba(239, 68, 68, 0.15);
+      --yellow:         #F59E0B;
+      --yellow-dim:     rgba(245, 158, 11, 0.15);
+      --orange:         #D35400;
 
-            --text-primary:   #F8FAFC;
-            --text-secondary: #94A3B8;
-            --text-muted:     #475569;
-            --text-tag:       #7DD3FC;
+      --text-primary:   #F8FAFC;
+      --text-secondary: #94A3B8;
+      --text-muted:     #475569;
+      --text-tag:       #7DD3FC;
 
-            --border:         rgba(148, 163, 184, 0.12);
-            --border-focus:   rgba(56, 189, 248, 0.5);
+      --border:         rgba(148, 163, 184, 0.12);
+      --border-focus:   rgba(56, 189, 248, 0.5);
 
-            --radius-sm:      6px;
-            --radius:         10px;
-            --radius-lg:      16px;
-            --radius-pill:    999px;
+      --radius-sm:      6px;
+      --radius:         10px;
+      --radius-lg:      16px;
+      --radius-pill:    999px;
 
-            --shadow:         0 4px 16px rgba(0,0,0,0.5);
-            --shadow-glow:    0 0 20px rgba(56, 189, 248, 0.2);
+      --shadow-sm:      0 1px 3px rgba(0,0,0,0.4);
+      --shadow:         0 4px 16px rgba(0,0,0,0.5);
+      --shadow-glow:    0 0 20px rgba(56, 189, 248, 0.2);
 
-            --transition:     0.18s ease;
-            --font-ui:        'Inter', system-ui, sans-serif;
-            --font-mono:      'JetBrains Mono', 'Fira Code', monospace;
-        }
+      --transition:     0.18s ease;
+      --font-ui:        'Inter', system-ui, sans-serif;
+      --font-mono:      'JetBrains Mono', 'Fira Code', monospace;
+    }
 
-        /* ── Reset & Base ───────────────────────────────────────── */
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: var(--font-ui);
-            background: var(--bg-base);
-            color: var(--text-primary);
-            line-height: 1.5;
-            padding: 24px;
-            -webkit-font-smoothing: antialiased;
-        }
-        h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 24px; color: var(--text-primary); }
-        h2 { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 16px; }
+    /* ── Reset ──────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; }
+    body {
+      font-family: var(--font-ui);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      line-height: 1.5;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    button { font-family: inherit; cursor: pointer; border: none; }
+    input, select, textarea { font-family: inherit; }
 
-        /* ── Layout Container ───────────────────────────────────── */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-        }
-        .full-width { grid-column: 1 / -1; }
+    /* ── Layout ─────────────────────────────────────────────── */
+    #app { min-height: 100vh; display: flex; flex-direction: column; }
 
-        /* ── Cards / Surfaces ───────────────────────────────────── */
-        .card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            padding: 24px;
-            box-shadow: var(--shadow);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
+    .page {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      animation: fadeIn 0.22s ease;
+    }
+    .page.active { display: flex; }
 
-        /* ── Buttons ────────────────────────────────────────────── */
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 11px 18px;
-            border-radius: var(--radius-sm);
-            font-size: 0.875rem;
-            font-weight: 600;
-            transition: var(--transition);
-            white-space: nowrap;
-            cursor: pointer;
-            border: none;
-            font-family: inherit;
-        }
-        .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-        
-        .btn-primary { background: var(--accent); color: var(--bg-base); }
-        .btn-primary:not(:disabled):hover { background: #7DD3FC; box-shadow: 0 0 14px var(--accent-glow); }
-        
-        .btn-secondary { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); }
-        .btn-secondary:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
-        
-        .btn-danger { background: var(--red-dim); color: var(--red); border: 1px solid transparent; }
-        .btn-danger:not(:disabled):hover { border-color: var(--red); }
-        
-        .btn-header { padding: 6px 12px; font-size: 0.8rem; float: right; }
+    @keyframes fadeIn { 
+      from { opacity: 0; transform: translateY(6px); } 
+      to { opacity: 1; transform: none; } 
+    }
 
-        /* ── Form Elements ──────────────────────────────────────── */
-        input.form-input {
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            color: var(--text-primary);
-            padding: 10px 14px;
-            font-size: 0.875rem;
-            transition: var(--transition);
-            outline: none;
-            width: 100%;
-            margin-bottom: 12px;
-        }
-        input.form-input::placeholder { color: var(--text-muted); }
-        input.form-input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-dim); }
-        input.form-input[readonly] { background: rgba(0,0,0,0.15); color: var(--text-secondary); cursor: not-allowed; }
-        .flex-row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+    /* ── Topbar (Alinhamento Corrigido) ────────────────────── */
+    .topbar {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      height: 65px;
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow-sm);
+    }
+    .topbar-logo {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      letter-spacing: -0.01em;
+    }
+    .topbar-logo .dot {
+      width: 9px; 
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 2s infinite;
+    }
+    .topbar-spacer { flex: 1; }
+    .topbar-user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+    .topbar-badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: var(--radius-pill);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .topbar-badge.professor { background: var(--accent-dim); color: var(--accent); }
+    .topbar-badge.aluno     { background: var(--green-dim);  color: var(--green);  }
 
-        /* ── Status & Feedback Elements ─────────────────────────── */
-        .status-box {
-            padding: 12px;
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-family: var(--font-mono);
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin-top: 12px;
-        }
-        .text-muted { color: var(--text-secondary); font-size: 0.85rem; }
-        .text-danger { color: var(--red) !important; font-weight: 600; }
+    .btn-logout {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      font-weight: 500;
+      transition: var(--transition);
+    }
+    .btn-logout:hover { border-color: var(--red); color: var(--red); background: var(--red-dim); }
 
-        /* ── Timers e Animações ─────────────────────────────────── */
-        .timer-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: var(--bg-elevated);
-            border: 1px solid var(--border);
-            color: var(--text-primary);
-            padding: 20px;
-            border-radius: var(--radius);
-            text-align: center;
-            box-shadow: var(--shadow-glow);
-        }
-        .timer-display { font-size: 2.5rem; font-weight: 700; font-family: var(--font-mono); color: var(--accent); margin-bottom: 4px; }
-        .timer-bloco { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; transition: color var(--transition); }
-        .progress-bar-bg { width: 100%; background: var(--bg-input); height: 6px; border-radius: var(--radius-pill); margin-top: 12px; overflow: hidden; }
-        .progress-bar-fill { width: 0%; height: 100%; background: var(--accent); transition: width 1s linear, background-color var(--transition); }
+    /* ── Main content wrapper ───────────────────────────────── */
+    .main-content {
+      flex: 1;
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
 
-        /* ── Tabelas Estruturadas ───────────────────────────────── */
-        .table-wrap { overflow-x: auto; margin-top: 10px; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-        th { text-align: left; padding: 12px 14px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-secondary); border-bottom: 2px solid var(--border); font-weight: 600; }
-        td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
-        tbody tr:hover td { background: var(--bg-elevated); }
-        
-        .mini-tabela th { background: var(--bg-input); padding: 10px; }
-        .mini-tabela td { padding: 10px; }
+    /* ── Cards / Surfaces ───────────────────────────────────── */
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
 
-        /* ── Badges Semânticas (Chips) ─────────────────────────── */
-        .badge { font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: var(--radius-pill); display: inline-block; text-transform: uppercase; letter-spacing: 0.02em; }
-        .badge-presente { background: var(--green-dim); color: var(--green); }
-        .badge-atrasado { background: var(--yellow-dim); color: var(--yellow); }
-        .badge-ausente { background: var(--red-dim); color: var(--red); }
-        
-        .tag-id { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-tag); background: var(--accent-dim); padding: 2px 6px; border-radius: 4px; }
-        .student-name { color: var(--text-primary); font-weight: 500; }
-        .coluna-faltas { font-weight: 600; color: var(--red); }
-        .zero-faltas { color: var(--green) !important; }
+    /* ── Buttons ────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: var(--transition);
+      white-space: nowrap;
+      justify-content: center;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-        .nota-regra { margin-top: 14px; padding: 12px; background-color: var(--bg-input); border-left: 4px solid var(--yellow); font-size: 0.85rem; border-radius: var(--radius-sm); color: var(--text-secondary); }
-        
-        /* Scrollbar Costumizado */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    </style>
+    .btn-primary { background: var(--accent); color: var(--bg-base); font-weight: 600; }
+    .btn-primary:not(:disabled):hover { background: #7DD3FC; box-shadow: 0 0 14px var(--accent-glow); }
+    
+    .btn-secondary { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); }
+    .btn-secondary:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+
+    .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+    .btn-full { width: 100%; }
+
+    /* ── Form Elements ──────────────────────────────────────── */
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-label { font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); }
+    .form-input {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      padding: 10px 14px;
+      font-size: 0.875rem;
+      transition: var(--transition);
+      outline: none;
+      width: 100%;
+    }
+    .form-input::placeholder { color: var(--text-muted); }
+    .form-input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-dim); }
+    .form-error { font-size: 0.75rem; color: var(--red); margin-top: 2px; }
+
+    /* ── Login View ─────────────────────────────────────────── */
+    .login-wrap {
+      min-height: calc(100vh - 65px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: radial-gradient(ellipse at 50% 40%, rgba(56,189,248,0.04) 0%, transparent 70%), var(--bg-base);
+    }
+    .login-box { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 24px; }
+    .login-header { text-align: center; }
+    .login-logo { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.03em; color: var(--text-primary); margin-bottom: 4px; }
+    .login-logo span { color: var(--accent); }
+    .login-sub { font-size: 0.875rem; color: var(--text-secondary); }
+
+    /* ── Empty State ────────────────────────────────────────── */
+    .empty-state { text-align: center; padding: 48px 24px; color: var(--text-muted); }
+    .empty-state-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.6; animation: rotate 2s linear infinite; }
+    .empty-state-msg  { font-size: 0.875rem; color: var(--text-secondary); }
+
+    /* ── Animations & Pulses ────────────────────────────────── */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 var(--accent-glow); }
+      50%      { opacity: 0.8; transform: scale(1.05); box-shadow: 0 0 0 6px rgba(56,189,248,0); }
+    }
+    @keyframes rotate { to { transform: rotate(365deg); } }
+
+    /* ── Custom Scrollbar ───────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+  </style>
 </head>
 <body>
+<div id="app">
 
-    <h1>Painel do Professor — Chamada Inteligente</h1>
+  <header class="topbar" id="topbar" style="display:none;">
+    <div class="topbar-logo">
+      <span class="dot"></span>
+      Chamada Inteligente
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-user">
+      <span id="topbar-name"></span>
+      <span class="topbar-badge" id="topbar-badge"></span>
+    </div>
+    <button class="btn-logout" id="btn-logout">Sair</button>
+  </header>
 
-    <div class="container">
-        <div class="card" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-            <div style="display: flex; flex-direction: column; justify-content: space-between;">
-                <div>
-                    <h2>1. Controle da Aula</h2>
-                    <button class="btn btn-primary" onclick="iniciarAula()" style="width: 100%; padding: 12px;">⏱ Iniciar Aula (100s)</button>
-                </div>
-                <p id="aula-status" class="status-box">Aula não iniciada.</p>
-            </div>
-            
-            <div class="timer-container">
-                <div class="timer-display" id="timer-regressivo">000s</div>
-                <div class="timer-bloco" id="timer-status-bloco">Sem Aula</div>
-                <div class="progress-bar-bg">
-                    <div class="progress-bar-fill" id="timer-progress"></div>
-                </div>
-            </div>
+  <div class="page active" id="page-login">
+    <div class="login-wrap">
+      <div class="login-box">
+
+        <div class="login-header">
+          <div class="login-logo">📡 Chamada<span>.</span></div>
+          <div class="login-sub">Sistema inteligente de presença via RFID</div>
         </div>
 
         <div class="card">
-            <h2>2. Cadastro de Alunos</h2>
-            <div class="flex-row">
-                <button id="btn-capturar" class="btn" onclick="capturarNovaTag()" style="width: 100%; padding: 12px; background: #2980b9; color: white;">📡 Capturar Nova Tag</button>
+          <form id="login-form" novalidate style="display:flex;flex-direction:column;gap:16px;">
+            <div class="form-group">
+              <label class="form-label" for="login-email">E-mail</label>
+              <input
+                type="email"
+                id="login-email"
+                class="form-input"
+                placeholder="seu@escola.edu.br"
+                autocomplete="email"
+                required
+              />
             </div>
-            <input type="text" id="uid-input" class="form-input" placeholder="A UID da tag aparecerá aqui automaticamente..." readonly>
-            <input type="text" id="nome-input" class="form-input" placeholder="Digite o nome do aluno">
-            <div class="flex-row" style="margin-bottom: 0;">
-                <button class="btn btn-secondary" onclick="salvarAluno()">💾 Salvar no Banco</button>
-                <span id="cadastro-feedback" class="text-muted"></span>
+            <div class="form-group">
+              <label class="form-label" for="login-password">Senha</label>
+              <input
+                type="password"
+                id="login-password"
+                class="form-input"
+                placeholder="••••••••"
+                autocomplete="current-password"
+                required
+              />
             </div>
+            <span class="form-error" id="login-error" style="display:none;"></span>
+            <button type="submit" class="btn btn-primary btn-full" id="btn-login">
+              Entrar
+            </button>
+          </form>
         </div>
 
-        <div class="card full-width">
-            <h2>Leituras no Sensor (Chamada em Tempo Real) <button class="btn btn-secondary btn-header" onclick="carregarPresencas()">Atualizar</button></h2>
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ID Reg.</th>
-                            <th>UID</th>
-                            <th>Nome</th>
-                            <th>Status</th>
-                            <th>Faltas Computadas</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabela-presencas"><tr><td colspan="5">Carregando...</td></tr></tbody>
-                </table>
-            </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <p style="font-size:.72rem;text-align:center;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;">
+            Acesso rápido (demo)
+          </p>
+          <div style="display:flex;gap:8px;">
+            <button
+              class="btn btn-secondary btn-sm"
+              style="flex:1;"
+              data-demo-login="carlos@escola.edu.br:prof123"
+            >
+              👨‍🏫 Professor
+            </button>
+            <button
+              class="btn btn-secondary btn-sm"
+              style="flex:1;"
+              data-demo-login="ana@escola.edu.br:aluno123"
+            >
+              🎓 Aluno
+            </button>
+          </div>
         </div>
 
-        <div class="card full-width">
-            <h2>Alunos Cadastrados <button class="btn btn-secondary btn-header" onclick="carregarAlunos()">Atualizar</button></h2>
-            <div class="table-wrap">
-                <table>
-                    <thead><tr><th>ID</th><th>UID</th><th>Nome</th></tr></thead>
-                    <tbody id="tabela-alunos"><tr><td colspan="3">Carregando...</td></tr></tbody>
-                </table>
-            </div>
-        </div>
+      </div>
+    </div>
+  </div>
 
-        <div class="card full-width" style="border-top: 3px solid var(--accent);">
-            <h2>Estrutura Métrica de Faltas (Duração da Aula: 100 segundos)</h2>
-            <div class="table-wrap">
-                <table class="mini-tabela">
-                    <thead>
-                        <tr>
-                            <th>Bloco Vigente</th>
-                            <th>Tempo Decorrido</th>
-                            <th>Penalidade na Entrada (Atraso)</th>
-                            <th>Penalidade se Sair Nesse Bloco (Abandono)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><span class="badge badge-presente">Bloco 1</span></td>
-                            <td><b>0s até 24s</b></td>
-                            <td>0 faltas (Presente)</td>
-                            <td>+4 faltas (Perde a aula toda)</td>
-                        </tr>
-                        <tr>
-                            <td><span class="badge badge-atrasado">Bloco 2</span></td>
-                            <td><b>25s até 49s</b></td>
-                            <td>1 falta (Atrasado)</td>
-                            <td>+3 faltas (Perde os blocos 2, 3 e 4)</td>
-                        </tr>
-                        <tr>
-                            <td><span class="badge badge-atrasado" style="color: var(--orange); background: rgba(211,84,0,0.15)">Bloco 3</span></td>
-                            <td><b>50s até 74s</b></td>
-                            <td>2 faltas (Atrasado)</td>
-                            <td>+2 faltas (Perde os blocos 3 e 4)</td>
-                        </tr>
-                        <tr>
-                            <td><span class="badge badge-ausente">Bloco 4</span></td>
-                            <td><b>75s até 99s</b></td>
-                            <td>3 faltas (Atrasado)</td>
-                            <td>+1 falta (Perde o bloco 4)</td>
-                        </tr>
-                        <tr>
-                            <td><span class="badge" style="background: var(--bg-elevated); color: var(--text-primary)">Fim de Aula</span></td>
-                            <td><b>&ge; 100s</b></td>
-                            <td>Entrada Bloqueada</td>
-                            <td>+0 faltas (Cumpriu até o fim)</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="nota-regra">
-                <strong>⚠️ Regra do Sistema (Cálculo Acumulativo):</strong> 
-                <code>Faltas Totais = Penalidade de Entrada + Penalidade de Saída</code> <em>(Limitado ao teto máximo de 4 faltas).</em>
-            </div>
-        </div>
+  <div class="page" id="page-professor">
+    <div class="main-content">
+      <div class="empty-state">
+        <div class="empty-state-icon">⏳</div>
+        <div class="empty-state-msg">Carregando dashboard…</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page" id="page-aluno">
     </div>
 
-    <script>
-        const API_URL = "http://192.168.3.51:3000";
-        let timerInterval = null;
-        let listaAlunosCache = []; 
+</div><div id="toast-container"></div>
 
-        function gerenciarTimerVisual(tempoInicial) {
-            if (timerInterval) clearInterval(timerInterval);
-            const display = document.getElementById("timer-regressivo");
-            const statusBloco = document.getElementById("timer-status-bloco");
-            const barra = document.getElementById("timer-progress");
-
-            timerInterval = setInterval(() => {
-                const segundosDecorridos = Math.floor((Date.now() - tempoInicial) / 1000);
-                if (segundosDecorridos >= 100) {
-                    display.innerText = "100s";
-                    statusBloco.innerText = "Aula Encerrada";
-                    statusBloco.style.color = "var(--red)";
-                    barra.style.width = "100%";
-                    barra.style.backgroundColor = "var(--red)";
-                    clearInterval(timerInterval);
-                    return;
-                }
-                display.innerText = `${String(segundosDecorridos).padStart(3, '0')}s`;
-                barra.style.width = `${segundosDecorridos}%`;
-
-                if (segundosDecorridos < 25) {
-                    statusBloco.innerText = "Bloco 1: 0 Faltas";
-                    statusBloco.style.color = "var(--green)";
-                    barra.style.backgroundColor = "var(--green)";
-                } else if (segundosDecorridos < 50) {
-                    statusBloco.innerText = "Bloco 2: +1 Falta";
-                    statusBloco.style.color = "var(--yellow)";
-                    barra.style.backgroundColor = "var(--yellow)";
-                } else if (segundosDecorridos < 74) {
-                    statusBloco.innerText = "Bloco 3: +2 Faltas";
-                    statusBloco.style.color = "var(--orange)";
-                    barra.style.backgroundColor = "var(--orange)";
-                } else {
-                    statusBloco.innerText = "Bloco 4: +3 Faltas";
-                    statusBloco.style.color = "var(--red)";
-                    barra.style.backgroundColor = "var(--red)";
-                }
-            }, 1000);
-        }
-
-        async function iniciarAula() {
-            try {
-                const res = await fetch(`${API_URL}/aula/iniciar`, { method: 'POST' });
-                document.getElementById('aula-status').innerHTML = `✅ Aula Iniciada!`;
-                gerenciarTimerVisual(Date.now());
-                carregarPresencas();
-            } catch (e) {
-                document.getElementById('aula-status').innerHTML = `❌ Erro ao conectar com a API`;
-            }
-        }
-
-        async function capturarNovaTag() {
-            const feedback = document.getElementById('cadastro-feedback');
-            const btn = document.getElementById('btn-capturar');
-            document.getElementById('uid-input').value = ""; 
-
-            try {
-                feedback.className = "text-muted";
-                feedback.innerText = "📡 Acionando Arduino...";
-                await fetch(`${API_URL}/cadastro/iniciar`, { method: 'POST' }); 
-                
-                feedback.innerText = "📡 Sensor Pronto! Aproxime a tag no leitor...";
-                btn.disabled = true;
-                btn.innerText = "⏳ Aguardando leitura...";
-                btn.style.background = "#475569";
-
-                let tentativas = 0;
-                const maxTentativas = 15; 
-
-                const loopVerificacao = setInterval(async () => {
-                    tentativas++;
-                    try {
-                        const res = await fetch(`${API_URL}/cadastro/status`);
-                        const data = await res.json();
-                        
-                        if (data.uid) {
-                            clearInterval(loopVerificacao);
-                            document.getElementById('uid-input').value = data.uid;
-                            
-                            const jaExiste = listaAlunosCache.some(aluno => aluno.uid.toUpperCase() === data.uid.toUpperCase());
-                            
-                            if (jaExiste || data.status === "NEGADO") {
-                                feedback.className = "text-danger";
-                                feedback.innerText = "❌ Negado: Esta tag já está cadastrada!";
-                            } else {
-                                feedback.className = "text-muted";
-                                feedback.innerText = "✅ Tag capturada com sucesso!";
-                            }
-                            restaurarBotao();
-                        } else if (tentativas >= maxTentativas) {
-                            clearInterval(loopVerificacao);
-                            feedback.className = "text-danger";
-                            feedback.innerText = "⚠️ Tempo esgotado! Nenhuma tag detectada.";
-                            restaurarBotao();
-                        }
-                    } catch (e) {
-                        clearInterval(loopVerificacao);
-                        feedback.innerText = "❌ Erro ao ler resposta do sensor.";
-                        restaurarBotao();
-                    }
-                }, 1500);
-
-            } catch (e) {
-                feedback.innerText = "❌ Erro ao ativar modo cadastro";
-                restaurarBotao();
-            }
-
-            function restaurarBotao() {
-                btn.disabled = false;
-                btn.innerText = "📡 Capturar Nova Tag";
-                btn.style.background = "#2980b9";
-            }
-        }
-
-        async function salvarAluno() {
-            const feedback = document.getElementById('cadastro-feedback');
-            const uid = document.getElementById('uid-input').value;
-            const nome = document.getElementById('nome-input').value.trim();
-            
-            if (!uid || !nome) {
-                feedback.innerText = "⚠️ Preencha o nome e capture a Tag primeiro!";
-                return;
-            }
-
-            try {
-                await fetch(`${API_URL}/cadastro/salvar`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ uid, nome })
-                });
-                
-                feedback.className = "text-muted";
-                feedback.innerText = "💾 Salvo com sucesso!";
-                document.getElementById('uid-input').value = "";
-                document.getElementById('nome-input').value = "";
-                await carregarAlunos();
-            } catch (e) {
-                feedback.className = "text-danger";
-                feedback.innerText = "❌ Erro ao salvar aluno";
-            }
-        }
-
-        async function carregarAlunos() {
-            try {
-                const res = await fetch(`${API_URL}/alunos`);
-                listaAlunosCache = await res.json();
-                const tbody = document.getElementById('tabela-alunos');
-                
-                if (!listaAlunosCache.length) {
-                    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Nenhum aluno cadastrado.</td></tr>`;
-                    return;
-                }
-                tbody.innerHTML = listaAlunosCache.map(a => `<tr><td>${a.id}</td><td><span class="tag-id">${a.uid}</span></td><td class="student-name">${a.nome}</td></tr>`).join('');
-            } catch (e) {
-                document.getElementById('tabela-alunos').innerHTML = `<tr><td colspan="3" style="color:var(--red);">Erro ao buscar alunos.</td></tr>`;
-            }
-        }
-
-        async function carregarPresencas() {
-            try {
-                const res = await fetch(`${API_URL}/presencas?t=${Date.now()}`);
-                const presencas = await res.json();
-                const tbody = document.getElementById('tabela-presencas');
-                
-                if (!presencas.length) {
-                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Nenhuma leitura registrada hoje.</td></tr>`;
-                    return;
-                }
-
-                tbody.innerHTML = presencas.map(p => {
-                    let badgeClass = 'badge-atrasado';
-                    if (p.status === 'PRESENTE') badgeClass = 'badge-presente';
-                    else if (p.status === 'AUSENTE' || p.status === 'SAIU') badgeClass = 'badge-ausente';
-
-                    const totalFaltas = p.faltas !== undefined && p.faltas !== null ? p.faltas : 0;
-                    const classeFalta = totalFaltas === 0 ? 'coluna-faltas zero-faltas' : 'coluna-faltas';
-
-                    let nomeAluno = p.nome || "Não Identificado";
-                    if (nomeAluno === "Não Identificado" && listaAlunosCache.length > 0) {
-                        const alunoEncontrado = listaAlunosCache.find(a => a.uid === p.uid);
-                        if (alunoEncontrado) nomeAluno = alunoEncontrado.nome;
-                    }
-
-                    return `
-                        <tr>
-                            <td>${p.id}</td>
-                            <td><span class="tag-id">${p.uid}</span></td>
-                            <td class="student-name"><b>${nomeAluno}</b></td>
-                            <td><span class="badge ${badgeClass}">${p.status}</span></td>
-                            <td class="${classeFalta}">${totalFaltas} bloco(s) de falta</td>
-                        </tr>`;
-                }).join('');
-            } catch (e) {
-                console.error("Erro no polling de presenças:", e);
-            }
-        }
-
-        window.onload = async () => {
-            await carregarAlunos();
-            carregarPresencas();
-            setInterval(carregarPresencas, 3000);
-        };
-    </script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
