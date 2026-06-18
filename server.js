@@ -8,13 +8,12 @@ const app = express();
 
 // CONFIGURAÇÃO DE CORS (Totalmente aberta para testes)
 app.use(cors({
-    origin: true, // Aceita qualquer frontend, de qualquer IP ou porta
+    origin: true, 
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
 }));
 
 app.use(express.json());
-
 app.use(express.static('.'));
 
 // Variáveis de controle
@@ -30,7 +29,7 @@ let parser = null;
 
 try {
     portaArduino = new SerialPort({
-        path: "/dev/ttyACM0", // Padrão Linux para Arduino na Raspberry
+        path: "/dev/ttyACM0", 
         baudRate: 9600
     });
 
@@ -61,7 +60,6 @@ try {
 function enviarComando(comando) {
     const json = JSON.stringify({ comando }) + "\n";
     
-    // Se o Arduino estiver conectado e aberto, manda pra ele. Se não, simula no log.
     if (portaArduino && portaArduino.isOpen) {
         portaArduino.write(json, (err) => {
             if (err) console.error("Erro ao enviar comando:", err.message);
@@ -73,7 +71,7 @@ function enviarComando(comando) {
 }
 
 // =======================================================
-// 2. LÓGICA CENTRAL
+// 2. LÓGICA CENTRAL CORRIGIDA
 // =======================================================
 async function processarLeitura(uid, distancia) {
     // Registra a última tag lida para a rota de status de cadastro
@@ -91,8 +89,8 @@ async function processarLeitura(uid, distancia) {
         return { acao: "afastou", uid };
     }
 
-    // Regra de Aproximação (Validação)
-    if (distancia > 0 && distancia < 10) {
+    // CORREÇÃO DA REGRA DE APROXIMAÇÃO: Incluído o ">= 0" para aceitar a leitura do sensor colado
+    if (distancia >= 0 && distancia < 10) {
         if (ocupandoSensor[uid]) return { acao: "ignorado_ja_ocupando", uid }; 
 
         const alunoCheck = await pool.query(`SELECT id, nome FROM alunos WHERE uid = $1`, [uid]);
@@ -121,10 +119,13 @@ async function registrarPresencaMecanismo(uid) {
 
     const segundos = Math.floor((Date.now() - inicioAula) / 1000);
     const faltas = Math.min(Math.floor(segundos / 25), 4);
+    
+    // Alinhado com o frontend: Se tem mais de 0 blocos de atraso, calcula o status proporcional
     const status = faltas === 0 ? "PRESENTE" : "ATRASADO";
 
+    // CORREÇÃO: Utilizando a coluna correta "data_registro" mapeada no seu Postgres
     await pool.query(
-        `INSERT INTO presencas (uid, status, faltas) VALUES ($1, $2, $3)`,
+        `INSERT INTO presencas (uid, status, faltas, data_registro) VALUES ($1, $2, $3, NOW())`,
         [uid, status, faltas]
     );
 
@@ -136,15 +137,12 @@ async function registrarPresencaMecanismo(uid) {
 // 3. ROTAS DA API
 // =======================================================
 
-// Rota auxiliar para simular o sensor via Postman (útil para debug remoto)
 app.post("/simulador/sensor", async (req, res) => {
     try {
         const { uid, distancia } = req.body;
-        
         if (!uid || distancia === undefined) {
             return res.status(400).json({ erro: "O body deve conter 'uid' e 'distancia'" });
         }
-
         const resultado = await processarLeitura(uid, distancia);
         res.json({ mensagem: "Leitura processada com sucesso", resultado });
     } catch (error) {
@@ -201,9 +199,7 @@ app.post("/presenca", async (req, res) => {
 });
 
 app.get("/cadastro/status", (req, res) => {
-    // Print no console para ver o que o Postman está puxando
     console.log(`[POSTMAN] Consultou a última Tag: ${ultimaTagLida ? ultimaTagLida.uid : "Nenhuma tag na memória"}`);
-    
     res.json(ultimaTagLida || { uid: null });
     ultimaTagLida = null; 
 });
@@ -222,7 +218,6 @@ app.get("/presencas", async (req, res) => {
     }
 });
 
-// Permitir injeção manual pelo terminal (Node.js)
 process.stdin.on("data", (data) => {
     if(parser) {
         const input = data.toString().trim();
