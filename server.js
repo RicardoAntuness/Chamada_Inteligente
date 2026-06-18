@@ -71,7 +71,7 @@ function enviarComando(comando) {
 }
 
 // =======================================================
-// 2. LÓGICA CENTRAL
+// 2. LÓGICA CENTRAL (COM SUPORTE A ENTRADA E SAÍDA)
 // =======================================================
 async function processarLeitura(uid, distancia) {
     // Registra a última tag lida para a rota de status de cadastro
@@ -80,7 +80,7 @@ async function processarLeitura(uid, distancia) {
     // Print no console para ver a leitura física em tempo real
     console.log(`[HARDWARE] Arduino leu a Tag: ${uid} | Distância: ${distancia}cm`);
 
-    // Regra de Saída
+    // Regra de Saída do Sensor
     if (distancia > 30) {
         if (ocupandoSensor[uid]) {
             console.log(`[SAÍDA] Aluno ${uid} se afastou do sensor.`);
@@ -101,7 +101,7 @@ async function processarLeitura(uid, distancia) {
         }
 
         ocupandoSensor[uid] = true;
-        console.log(`[VALIDADO] Aluno ${alunoCheck.rows[0].nome}. Registrando...`);
+        console.log(`[VALIDADO] Aluno ${alunoCheck.rows[0].nome}. Processando registro...`);
         const registro = await registrarPresencaMecanismo(uid);
         
         return { acao: "validado", uid, registro };
@@ -117,17 +117,54 @@ async function registrarPresencaMecanismo(uid) {
         return { erro: "Aula não iniciada" };
     }
 
-    const segundos = Math.floor((Date.now() - inicioAula) / 1000);
-    const faltas = Math.min(Math.floor(segundos / 25), 4);
-    const status = faltas === 0 ? "PRESENTE" : "ATRASADO";
+    try {
+        // 1. Verifica se este aluno já possui algum registro na aula corrente
+        const registroExistente = await pool.query(
+            "SELECT * FROM presencas WHERE uid = $1 ORDER BY id DESC LIMIT 1",
+            [uid]
+        );
 
-    await pool.query(
-        `INSERT INTO presencas (uid, status, faltas, data_registro) VALUES ($1, $2, $3, NOW())`,
-        [uid, status, faltas]
-    );
+        // 2. SE JÁ EXISTE REGISTRO: Significa que ele está batendo SAÍDA
+        if (registroExistente.rows.length > 0) {
+            const registroAtual = registroExistente.rows[0];
 
-    enviarComando("APROVADO");
-    return { uid, status, faltas };
+            // Se o último status já for "SAIU", avisa e mantém para evitar duplicidade externa
+            if (registroAtual.status === "SAIU") {
+                console.log(`[HARDWARE] Aluno ${uid} já havia saído.`);
+                enviarComando("APROVADO"); 
+                return { uid, status: "SAIU", mensagem: "Saída já registrada anteriormente." };
+            }
+
+            // Altera o status do registro existente para "SAIU"
+            await pool.query(
+                "UPDATE presencas SET status = $1 WHERE id = $2",
+                ["SAIU", registroAtual.id]
+            );
+
+            console.log(`[SAÍDA] Aluno ${uid} registrou a saída da aula.`);
+            enviarComando("APROVADO"); // Apita/Pisca confirmando a saída
+            return { uid, status: "SAIU", faltas: registroAtual.faltas };
+        }
+
+        // 3. SE NÃO EXISTE REGISTRO: É a primeira batida (ENTRADA)
+        const segundos = Math.floor((Date.now() - inicioAula) / 1000);
+        const faltas = Math.min(Math.floor(segundos / 25), 4);
+        const status = faltas === 0 ? "PRESENTE" : "ATRASADO";
+
+        await pool.query(
+            `INSERT INTO presencas (uid, status, faltas, data_registro) VALUES ($1, $2, $3, NOW())`,
+            [uid, status, faltas]
+        );
+
+        console.log(`[ENTRADA] Aluno ${uid} registrado como ${status}.`);
+        enviarComando("APROVADO");
+        return { uid, status, faltas };
+
+    } catch (error) {
+        console.error("Erro no mecanismo de presença/saída:", error.message);
+        enviarComando("NEGADO");
+        throw error;
+    }
 }
 
 // =======================================================
@@ -160,7 +197,6 @@ app.post("/login", async (req, res) => {
     }
 });
 
-// ROTA CORRIGIDA: Agora limpa dados anteriores de presenças ao reiniciar a aula
 app.post("/aula/iniciar", async (req, res) => {
     try {
         // 1. Limpa todas as presenças registradas no banco e reinicia IDs para 1
