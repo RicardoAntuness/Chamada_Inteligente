@@ -71,7 +71,7 @@ function enviarComando(comando) {
 }
 
 // =======================================================
-// 2. LÓGICA CENTRAL (COM SUPORTE A ENTRADA E SAÍDA)
+// 2. LÓGICA CENTRAL
 // =======================================================
 async function processarLeitura(uid, distancia) {
     // Registra a última tag lida para a rota de status de cadastro
@@ -80,10 +80,10 @@ async function processarLeitura(uid, distancia) {
     // Print no console para ver a leitura física em tempo real
     console.log(`[HARDWARE] Arduino leu a Tag: ${uid} | Distância: ${distancia}cm`);
 
-    // Regra de Saída do Sensor
+    // Regra de Saída do Sensor (Afastamento)
     if (distancia > 30) {
         if (ocupandoSensor[uid]) {
-            console.log(`[SAÍDA] Aluno ${uid} se afastou do sensor.`);
+            console.log(`[SAÍDA FÍSICA] Aluno ${uid} se afastou do sensor.`);
             delete ocupandoSensor[uid];
         }
         return { acao: "afastou", uid };
@@ -128,22 +128,40 @@ async function registrarPresencaMecanismo(uid) {
         if (registroExistente.rows.length > 0) {
             const registroAtual = registroExistente.rows[0];
 
-            // Se o último status já for "SAIU", avisa e mantém para evitar duplicidade externa
+            // Se o último status já for "SAIU", alterna de volta para PRESENTE/ATRASADO (re-entrada)
             if (registroAtual.status === "SAIU") {
-                console.log(`[HARDWARE] Aluno ${uid} já havia saído.`);
-                enviarComando("APROVADO"); 
-                return { uid, status: "SAIU", mensagem: "Saída já registrada anteriormente." };
+                const segundos = Math.floor((Date.now() - inicioAula) / 1000);
+                const faltas = Math.min(Math.floor(segundos / 25), 4);
+                const status = faltas === 0 ? "PRESENTE" : "ATRASADO";
+
+                await pool.query(
+                    "UPDATE presencas SET status = $1, faltas = $2 WHERE id = $3",
+                    [status, faltas, registroAtual.id]
+                );
+                console.log(`[RE-ENTRADA] Aluno ${uid} mudou status para ${status}.`);
+                enviarComando("APROVADO");
+                return { uid, status, faltas };
             }
 
-            // Altera o status do registro existente para "SAIU"
+            // =======================================================
+            // OPÇÃO B: RECALCULAR FALTAS PROPORCIONAIS AO TEMPO EM AULA
+            // =======================================================
+            const segundosPresente = Math.floor((Date.now() - inicioAula) / 1000);
+            const tempoTotalAula = 100; // Tempo máximo de simulação para 4 blocos (4 * 25s)
+            
+            // O tempo que restava para acabar a aula vira falta acumulada (Mínimo 0, Máximo 4)
+            const tempoRestante = Math.max(0, tempoTotalAula - segundosPresente);
+            const faltasSaida = Math.min(Math.floor(tempoRestante / 25), 4);
+
+            // Altera o status do registro existente para "SAIU" e atualiza as faltas recalculadas
             await pool.query(
-                "UPDATE presencas SET status = $1 WHERE id = $2",
-                ["SAIU", registroAtual.id]
+                "UPDATE presencas SET status = $1, faltas = $2 WHERE id = $3",
+                ["SAIU", faltasSaida, registroAtual.id]
             );
 
-            console.log(`[SAÍDA] Aluno ${uid} registrou a saída da aula.`);
-            enviarComando("APROVADO"); // Apita/Pisca confirmando a saída
-            return { uid, status: "SAIU", faltas: registroAtual.faltas };
+            console.log(`[SAÍDA] Aluno ${uid} registrou saída. Tempo presente: ${segundosPresente}s. Faltas aplicadas: ${faltasSaida}`);
+            enviarComando("APROVADO"); 
+            return { uid, status: "SAIU", faltas: faltasSaida };
         }
 
         // 3. SE NÃO EXISTE REGISTRO: É a primeira batida (ENTRADA)
