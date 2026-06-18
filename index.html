@@ -27,14 +27,18 @@
         input { padding: 10px; width: 100%; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
         .flex-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th, td { border: 1px solid #ddd; padding: 12px 8px; text-align: left; }
         th { background-color: var(--primary); color: white; }
         
-        /* Badges de Status */
-        .badge-presente { background: var(--secondary); color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold; }
-        .badge-atrasado { background: var(--warning); color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold; }
-        .badge-ausente { background: var(--danger); color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold; }
+        /* Badges de Status Modernos */
+        .badge-presente { background: var(--secondary); color: white; padding: 6px 12px; border-radius: 12px; font-size: 0.85em; font-weight: bold; display: inline-block; }
+        .badge-atrasado { background: var(--warning); color: white; padding: 6px 12px; border-radius: 12px; font-size: 0.85em; font-weight: bold; display: inline-block; }
+        .badge-ausente { background: var(--danger); color: white; padding: 6px 12px; border-radius: 12px; font-size: 0.85em; font-weight: bold; display: inline-block; }
         
+        /* Destaque para a Coluna de Faltas */
+        .coluna-faltas { font-size: 1.1em; color: var(--danger); font-weight: bold; }
+        .zero-faltas { color: var(--secondary) !important; font-weight: bold; }
+
         .status-box { padding: 10px; background: #eee; border-radius: 4px; font-family: monospace; font-weight: bold; margin-bottom: 0; }
         .text-muted { color: #7f8c8d; font-size: 0.9em; }
 
@@ -45,9 +49,9 @@
         .progress-bar-bg { width: 100%; background: #444; height: 8px; border-radius: 4px; margin-top: 10px; overflow: hidden; }
         .progress-bar-fill { width: 0%; height: 100%; background: var(--secondary); transition: width 1s linear, background-color 0.3s; }
         
-        .mini-tabela { font-size: 0.75em; width: 100%; margin-top: 8px; }
-        .mini-tabela th { background: #34495e; padding: 4px; }
-        .mini-tabela td { padding: 4px; background: #fafafa; }
+        .mini-tabela { font-size: 0.9em; width: 100%; margin-top: 8px; }
+        .mini-tabela th { background: #34495e; padding: 8px; }
+        .mini-tabela td { padding: 8px; background: #fafafa; }
     </style>
 </head>
 <body>
@@ -88,8 +92,31 @@
         </div>
 
         <div class="card full-width">
+            <h2>Alunos Cadastrados <button onclick="carregarAlunos()" style="float: right;">Atualizar</button></h2>
+            <table>
+                <thead><tr><th>ID</th><th>UID</th><th>Nome</th></tr></thead>
+                <tbody id="tabela-alunos"><tr><td colspan="3">Carregando...</td></tr></tbody>
+            </table>
+        </div>
+
+        <div class="card full-width">
+            <h2>Leituras no Sensor <button onclick="carregarPresencas()" style="float: right;">Atualizar</button></h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID Reg.</th>
+                        <th>UID</th>
+                        <th>Status</th>
+                        <th>Faltas Computadas</th>
+                    </tr>
+                </thead>
+                <tbody id="tabela-presencas"><tr><td colspan="4">Carregando...</td></tr></tbody>
+            </table>
+        </div>
+
+        <div class="card full-width" style="border-top: 3px solid var(--primary); background: #fdfdfd;">
             <h2>Estrutura Métrica de Faltas (Duração da Aula: 100 segundos)</h2>
-            <table class="mini-tabela" style="font-size: 0.9em;">
+            <table class="mini-tabela">
                 <thead>
                     <tr>
                         <th>Tempo Decorrido</th>
@@ -126,22 +153,6 @@
                 </tbody>
             </table>
         </div>
-
-        <div class="card full-width">
-            <h2>Alunos Cadastrados <button onclick="carregarAlunos()" style="float: right;">Atualizar</button></h2>
-            <table>
-                <thead><tr><th>ID</th><th>UID</th><th>Nome</th></tr></thead>
-                <tbody id="tabela-alunos"><tr><td colspan="3">Carregando...</td></tr></tbody>
-            </table>
-        </div>
-
-        <div class="card full-width">
-            <h2>Leituras no Sensor <button onclick="carregarPresencas()" style="float: right;">Atualizar</button></h2>
-            <table>
-                <thead><tr><th>ID Reg.</th><th>UID</th><th>Status</th><th>Faltas</th></tr></thead>
-                <tbody id="tabela-presencas"><tr><td colspan="4">Carregando...</td></tr></tbody>
-            </table>
-        </div>
     </div>
 
     <script>
@@ -168,11 +179,9 @@
                     return;
                 }
 
-                // Atualiza o display numérico e a barra de preenchimento
                 display.innerText = `${String(segundosDecorridos).padStart(3, '0')}s`;
                 barra.style.width = `${segundosDecorridos}%`;
 
-                // Aplica a lógica exata de cores e blocos do seu server.js
                 if (segundosDecorridos < 25) {
                     statusBloco.innerText = "Bloco 1: 0 Faltas";
                     statusBloco.style.color = "var(--secondary)";
@@ -199,7 +208,6 @@
                 const data = await res.json();
                 document.getElementById('aula-status').innerHTML = `✅ Aula Iniciada!`;
                 
-                // Dispara o cronômetro baseado no timestamp retornado pelo servidor
                 gerenciarTimerVisual(Date.now());
                 carregarPresencas();
             } catch (e) {
@@ -289,13 +297,16 @@
                     else if (p.status === 'AUSENTE' || p.status === 'SAIU') badgeClass = 'badge-ausente';
 
                     const totalFaltas = p.faltas !== undefined && p.faltas !== null ? p.faltas : 0;
+                    
+                    // Se o aluno tiver 0 faltas ganha classe verde, senão destaca em negrito vermelho
+                    const classeFalta = totalFaltas === 0 ? 'coluna-faltas zero-faltas' : 'coluna-faltas';
 
                     return `
                         <tr>
                             <td>${p.id}</td>
                             <td><code>${p.uid}</code></td>
                             <td><span class="${badgeClass}">${p.status}</span></td>
-                            <td><strong>${totalFaltas}</strong> bloco(s)</td>
+                            <td class="${classeFalta}">${totalFaltas} bloco(s) de falta</td>
                         </tr>`;
                 }).join('');
             } catch (e) {
