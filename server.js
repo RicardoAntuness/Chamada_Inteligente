@@ -233,6 +233,13 @@ app.post("/cadastro/iniciar", (req, res) => {
     return res.status(200).json({ mensagem: "Comando de modo cadastro enviado!" });
 });
 
+// Cancela o modo cadastro no hardware caso ocorra timeout no frontend
+app.post("/cadastro/cancelar", (req, res) => {
+    console.log("[API] Tempo limite esgotado. Cancelando MODO_CADASTRO no hardware.");
+    enviarComando("NEGADO");
+    return res.status(200).json({ mensagem: "Modo cadastro cancelado por timeout." });
+});
+
 // Salva de forma persistente os dados de um novo aluno no banco de dados
 app.post("/cadastro/salvar", async (req, res) => {
     try {
@@ -240,7 +247,7 @@ app.post("/cadastro/salvar", async (req, res) => {
         await pool.query(`INSERT INTO alunos (uid, nome) VALUES ($1, $2)`, [uid, nome]);
         enviarComando("CADASTRO_OK");
         console.log(`[DATABASE] Novo aluno registrado -> Nome: ${nome} | Tag: ${uid}`);
-        res.json({ sucesso: true, mensagem: "Aluno cadastrado!" });
+        res.json({ sucesso: true, message: "Aluno cadastrado!" });
     } catch (error) {
         enviarComando("NEGADO");
         console.error("[DATABASE] Falha ao cadastrar aluno:", error.message);

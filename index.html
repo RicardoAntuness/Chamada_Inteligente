@@ -425,6 +425,10 @@
                             clearInterval(loopVerificacao);
                             feedback.className = "text-danger";
                             feedback.innerText = "⚠️ Tempo esgotado! Nenhuma tag detectada.";
+                            
+                            // Dispara a chamada ao backend para desligar as luzes do hardware por timeout
+                            fetch(`${API_URL}/cadastro/cancelar`, { method: 'POST' }).catch(e => console.error(e));
+                            
                             restaurarBotao();
                         }
                     } catch (e) {
@@ -452,88 +456,33 @@
             const nome = document.getElementById('nome-input').value.trim();
             
             if (!uid || !nome) {
+                feedback.className = "text-danger";
                 feedback.innerText = "⚠️ Preencha o nome e capture a Tag primeiro!";
                 return;
             }
 
             try {
-                await fetch(`${API_URL}/cadastro/salvar`, {
+                const res = await fetch(`${API_URL}/cadastro/salvar`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ uid, nome })
                 });
-                
-                feedback.className = "text-muted";
-                feedback.innerText = "💾 Salvo com sucesso!";
-                document.getElementById('uid-input').value = "";
-                document.getElementById('nome-input').value = "";
-                await carregarAlunos();
+                const data = await res.json();
+                if (data.sucesso) {
+                    feedback.className = "text-muted";
+                    feedback.innerText = "✅ Aluno salvo e registrado!";
+                    document.getElementById('uid-input').value = "";
+                    document.getElementById('nome-input').value = "";
+                    carregarAlunos();
+                } else {
+                    feedback.className = "text-danger";
+                    feedback.innerText = "❌ Erro ao salvar dados.";
+                }
             } catch (e) {
                 feedback.className = "text-danger";
-                feedback.innerText = "❌ Erro ao salvar aluno";
+                feedback.innerText = "❌ Falha crítica na comunicação com a API.";
             }
         }
-
-        async function carregarAlunos() {
-            try {
-                const res = await fetch(`${API_URL}/alunos`);
-                listaAlunosCache = await res.json();
-                const tbody = document.getElementById('tabela-alunos');
-                
-                if (!listaAlunosCache.length) {
-                    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Nenhum aluno cadastrado.</td></tr>`;
-                    return;
-                }
-                tbody.innerHTML = listaAlunosCache.map(a => `<tr><td>${a.id}</td><td><span class="tag-id">${a.uid}</span></td><td class="student-name">${a.nome}</td></tr>`).join('');
-            } catch (e) {
-                document.getElementById('tabela-alunos').innerHTML = `<tr><td colspan="3" style="color:var(--red);">Erro ao buscar alunos.</td></tr>`;
-            }
-        }
-
-        async function carregarPresencas() {
-            try {
-                const res = await fetch(`${API_URL}/presencas?t=${Date.now()}`);
-                const presencas = await res.json();
-                const tbody = document.getElementById('tabela-presencas');
-                
-                if (!presencas.length) {
-                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Nenhuma leitura registrada hoje.</td></tr>`;
-                    return;
-                }
-
-                tbody.innerHTML = presencas.map(p => {
-                    let badgeClass = 'badge-atrasado';
-                    if (p.status === 'PRESENTE') badgeClass = 'badge-presente';
-                    else if (p.status === 'AUSENTE' || p.status === 'SAIU') badgeClass = 'badge-ausente';
-
-                    const totalFaltas = p.faltas !== undefined && p.faltas !== null ? p.faltas : 0;
-                    const classeFalta = totalFaltas === 0 ? 'coluna-faltas zero-faltas' : 'coluna-faltas';
-
-                    let nomeAluno = p.nome || "Não Identificado";
-                    if (nomeAluno === "Não Identificado" && listaAlunosCache.length > 0) {
-                        const alunoEncontrado = listaAlunosCache.find(a => a.uid === p.uid);
-                        if (alunoEncontrado) nomeAluno = alunoEncontrado.nome;
-                    }
-
-                    return `
-                        <tr>
-                            <td>${p.id}</td>
-                            <td><span class="tag-id">${p.uid}</span></td>
-                            <td class="student-name"><b>${nomeAluno}</b></td>
-                            <td><span class="badge ${badgeClass}">${p.status}</span></td>
-                            <td class="${classeFalta}">${totalFaltas} bloco(s) de falta</td>
-                        </tr>`;
-                }).join('');
-            } catch (e) {
-                console.error("Erro no polling de presenças:", e);
-            }
-        }
-
-        window.onload = async () => {
-            await carregarAlunos();
-            carregarPresencas();
-            setInterval(carregarPresencas, 3000);
-        };
     </script>
 </body>
 </html>
