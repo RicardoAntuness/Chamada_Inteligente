@@ -148,32 +148,36 @@ async function registrarPresencaMecanismo(uid) {
                 return { uid, status, faltas };
             }
 
-            // CORREÇÃO DA LÓGICA DA SAÍDA: Mapeamento direto por faixas de bloco para evitar erros matemáticos
+            // IMPLEMENTAÇÃO RIGOROSA DA SAÍDA ACUMULATIVA:
+            // 1. Mapeia quantas faltas o aluno gera puramente pelo momento que resolveu ir embora (Abandono)
             const segundosPresente = Math.floor((Date.now() - inicioAula) / 1000);
-            let faltasSaida = 4; // Padrão: Falta Total
+            let faltasPeloAbandono = 0;
 
             if (segundosPresente < 25) {
-                faltasSaida = 4; // Saiu no Bloco 1 -> Perdeu a aula toda (4 faltas)
+                faltasPeloAbandono = 4; // Abandonou no Bloco 1 -> Perdeu os 4 blocos da aula
             } else if (segundosPresente < 50) {
-                faltasSaida = 3; // Saiu no Bloco 2 -> Tomou 3 faltas
+                faltasPeloAbandono = 3; // Abandonou no Bloco 2 -> Perdeu 3 blocos
             } else if (segundosPresente < 75) {
-                faltasSaida = 2; // Saiu no Bloco 3 -> Tomou 2 faltas
+                faltasPeloAbandono = 2; // Abandonou no Bloco 3 -> Perdeu 2 blocos (Bloco 3 e 4)
             } else if (segundosPresente < 100) {
-                faltasSaida = 1; // Saiu no Bloco 4 -> Tomou 1 falta
+                faltasPeloAbandono = 1; // Abandonou no Bloco 4 -> Perdeu 1 bloco (Bloco 4)
             } else {
-                faltasSaida = 0; // Saiu após o fim da aula completa -> 0 faltas
+                faltasPeloAbandono = 0; // Ficou até o término completo da aula
             }
+
+            // 2. Soma as faltas do atraso inicial (já salvas no banco) com as novas do abandono precoce
+            let faltasTotaisAtualizadas = Math.min(registroAtual.faltas + faltasPeloAbandono, 4);
 
             await pool.query(
                 "UPDATE presencas SET status = $1, faltas = $2 WHERE id = $3",
-                ["SAIU", faltasSaida, registroAtual.id]
+                ["SAIU", faltasTotaisAtualizadas, registroAtual.id]
             );
 
-            console.log(`[SAÍDA] Aluno ${uid} registrou saída. Tempo presente: ${segundosPresente}s. Faltas aplicadas: ${faltasSaida}`);
+            console.log(`[SAÍDA ACUMULATIVA] Aluno ${uid} saiu. Atraso Entrada: ${registroAtual.faltas} | Falta Abandono: ${faltasPeloAbandono} | Total Final: ${faltasTotaisAtualizadas}`);
             enviarComando("APROVADO"); 
 
             delete ocupandoSensor[uid];
-            return { uid, status: "SAIU", faltas: faltasSaida };
+            return { uid, status: "SAIU", faltas: faltasTotaisAtualizadas };
         }
 
         // SE NÃO EXISTE REGISTRO: É a primeira batida (ENTRADA)
