@@ -6,17 +6,17 @@ const { ReadlineParser } = require("@serialport/parser-readline");
 
 const app = express();
 
-// CONFIGURAÇÃO DE CORS (Totalmente aberta para testes)
+// CONFIGURAÇÃO DE CORS (Restrito aos métodos em uso pelo ecossistema)
 app.use(cors({
     origin: true, 
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST"],
     credentials: true
 }));
 
 app.use(express.json());
 app.use(express.static('.'));
 
-// Variáveis de controle
+// Variáveis de controle de estado global
 let inicioAula = null; 
 let ultimaTagLida = null;
 
@@ -24,7 +24,7 @@ let ultimaTagLida = null;
 const ocupandoSensor = {}; 
 
 // =======================================================
-// 1. CONFIGURAÇÃO TOLERANTE A FALHAS DA SERIAL (ARDUINO)
+// 1. CONFIGURAÇÃO DA SERIAL (ARDUINO)
 // =======================================================
 let portaArduino = null;
 let parser = null;
@@ -37,10 +37,10 @@ try {
 
     parser = portaArduino.pipe(new ReadlineParser({ delimiter: '\n' }));
 
-    portaArduino.on("open", () => console.log("Arduino conectado com sucesso na Raspberry."));
-    portaArduino.on("error", (err) => console.log(`[AVISO SERIAL] Modo simulação ativo. Arduino não detectado: ${err.message}`));
+    portaArduino.on("open", () => console.log("[SYSTEM] Hardware Conectado: Arduino operacional na Raspberry Pi."));
+    portaArduino.on("error", (err) => console.error(`[ERRO SERIAL] Falha crítica de conexão com o Arduino: ${err.message}`));
 
-    // Escutando o Arduino real
+    // Escuta e processa as leituras via hardware
     parser.on("data", async (linha) => {
         try {
             const texto = linha.trim();
@@ -51,74 +51,75 @@ try {
                 await processarLeitura(dados.uid, dados.distancia);
             }
         } catch (error) {
-            console.error("Erro ao processar dados seriais:", error.message);
+            console.error("[HARDWARE] Erro ao processar dados seriais:", error.message);
         }
     });
 
 } catch (error) {
-    console.log("[AVISO] Rodando sem Arduino. Use o Postman para simular leituras.");
+    console.error("[SYSTEM] Erro crítico ao inicializar interface Serial:", error.message);
 }
 
+// Envia comandos de feedback visual/sonoro para o Arduino
 function enviarComando(comando) {
     const json = JSON.stringify({ comando }) + "\n";
     
     if (portaArduino && portaArduino.isOpen) {
         portaArduino.write(json, (err) => {
-            if (err) console.error("Erro ao enviar comando:", err.message);
-            else console.log("Comando enviado pro Arduino:", json.trim());
+            if (err) console.error("[HARDWARE] Erro ao enviar comando:", err.message);
+            else console.log("[HARDWARE] Comando enviado pro Arduino:", json.trim());
         });
-    } else {
-        console.log(`[SIMULADOR DE HARDWARE] O Arduino piscaria/apitaria agora -> COMANDO: ${comando}`);
     }
 }
 
 // =======================================================
-// 2. LÓGICA CENTRAL
+// 2. LÓGICA CENTRAL DE FLUXO E REGRAS DE NEGÓCIO
 // =======================================================
+
+// Filtra e valida a aproximação física da tag no sensor ultrassônico
 async function processarLeitura(uid, distancia) {
     ultimaTagLida = { uid };
 
-    console.log(`[HARDWARE] Arduino leu a Tag: ${uid} | Distância: ${distancia}cm`);
+    console.log(`[HARDWARE] Leitura Capturada -> Tag: ${uid} | Distância: ${distancia}cm`);
 
+    // Valida se o cartão foi completamente afastado do leitor
     if (distancia > 30) {
         if (ocupandoSensor[uid] === true) {
-            console.log(`[AFASTAMENTO DETECTADO] Aluno ${uid} movendo cartão para longe. Aguardando desobstrução completa...`);
+            console.log(`[AUDITORIA] Aluno ${uid} afastando cartão. Aguardando liberação do sensor.`);
             ocupandoSensor[uid] = "afastando"; 
         }
-        return { acao: "afastando", uid };
+        return;
     }
 
+    // Processa a aproximação intencional de presença
     if (distancia >= 0 && distancia < 10) {
         if (ocupandoSensor[uid]) {
             if (ocupandoSensor[uid] === "afastando") {
                 ocupandoSensor[uid] = true; 
             }
-            return { acao: "ignorado_nao_afastou_completamente", uid }; 
+            return; 
         }
 
         const alunoCheck = await pool.query(`SELECT id, nome FROM alunos WHERE uid = $1`, [uid]);
 
         if (alunoCheck.rows.length === 0) {
             enviarComando("NEGADO");
-            return { acao: "negado", uid, motivo: "Aluno não cadastrado" };
+            console.log(`[AUDITORIA] Acesso Negado: Tag ${uid} não possui cadastro.`);
+            return;
         }
 
         ocupandoSensor[uid] = true;
         
-        console.log(`[VALIDADO] Aluno ${alunoCheck.rows[0].nome}. Processando registro...`);
-        const registro = await registrarPresencaMecanismo(uid);
-        
-        return { acao: "validado", uid, registro };
+        console.log(`[AUDITORIA] Tag reconhecida com sucesso -> Aluno: ${alunoCheck.rows[0].nome}`);
+        await registrarPresencaMecanismo(uid);
     }
-
-    return { acao: "intermediario", uid, distancia };
 }
 
+// Calcula matematicamente os blocos de falta por entrada tardia ou abandono precoce
 async function registrarPresencaMecanismo(uid) {
     if (!inicioAula) {
-        console.log("Tentativa de registro antes de iniciar a aula.");
+        console.log(`[AUDITORIA] Registro Rejeitado: Tentativa de leitura da Tag ${uid} antes do início formal da aula.`);
         enviarComando("NEGADO");
-        return { erro: "Aula não iniciada" };
+        return;
     }
 
     try {
@@ -127,11 +128,11 @@ async function registrarPresencaMecanismo(uid) {
             [uid]
         );
 
-        // SE JÁ EXISTE REGISTRO: Significa que ele está batendo SAÍDA
+        // FLUXO DE SAÍDA OU RE-ENTRADA DO ALUNO
         if (registroExistente.rows.length > 0) {
             const registroAtual = registroExistente.rows[0];
 
-            // Se o último status já for "SAIU", alterna de volta para PRESENTE/ATRASADO (re-entrada)
+            // Re-entrada do aluno na sala de aula
             if (registroAtual.status === "SAIU") {
                 const segundos = Math.floor((Date.now() - inicioAula) / 1000);
                 const faltas = Math.min(Math.floor(segundos / 25), 4);
@@ -141,31 +142,29 @@ async function registrarPresencaMecanismo(uid) {
                     "UPDATE presencas SET status = $1, faltas = $2 WHERE id = $3",
                     [status, faltas, registroAtual.id]
                 );
-                console.log(`[RE-ENTRADA] Aluno ${uid} mudou status para ${status}.`);
+                console.log(`[AUDITORIA] RE-ENTRADA: Aluno ${uid} retornou à aula. Status atualizado para: ${status} (Faltas: ${faltas}).`);
                 enviarComando("APROVADO");
                 
                 delete ocupandoSensor[uid];
-                return { uid, status, faltas };
+                return;
             }
 
-            // IMPLEMENTAÇÃO RIGOROSA DA SAÍDA ACUMULATIVA:
-            // 1. Mapeia quantas faltas o aluno gera puramente pelo momento que resolveu ir embora (Abandono)
+            // Registro de Saída com cálculo acumulativo progressivo (Abandono)
             const segundosPresente = Math.floor((Date.now() - inicioAula) / 1000);
             let faltasPeloAbandono = 0;
 
             if (segundosPresente < 25) {
-                faltasPeloAbandono = 4; // Abandonou no Bloco 1 -> Perdeu os 4 blocos da aula
+                faltasPeloAbandono = 4;
             } else if (segundosPresente < 50) {
-                faltasPeloAbandono = 3; // Abandonou no Bloco 2 -> Perdeu 3 blocos
+                faltasPeloAbandono = 3;
             } else if (segundosPresente < 75) {
-                faltasPeloAbandono = 2; // Abandonou no Bloco 3 -> Perdeu 2 blocos (Bloco 3 e 4)
+                faltasPeloAbandono = 2;
             } else if (segundosPresente < 100) {
-                faltasPeloAbandono = 1; // Abandonou no Bloco 4 -> Perdeu 1 bloco (Bloco 4)
+                faltasPeloAbandono = 1;
             } else {
-                faltasPeloAbandono = 0; // Ficou até o término completo da aula
+                faltasPeloAbandono = 0;
             }
 
-            // 2. Soma as faltas do atraso inicial (já salvas no banco) com as novas do abandono precoce
             let faltasTotaisAtualizadas = Math.min(registroAtual.faltas + faltasPeloAbandono, 4);
 
             await pool.query(
@@ -173,14 +172,14 @@ async function registrarPresencaMecanismo(uid) {
                 ["SAIU", faltasTotaisAtualizadas, registroAtual.id]
             );
 
-            console.log(`[SAÍDA ACUMULATIVA] Aluno ${uid} saiu. Atraso Entrada: ${registroAtual.faltas} | Falta Abandono: ${faltasPeloAbandono} | Total Final: ${faltasTotaisAtualizadas}`);
+            console.log(`[AUDITORIA] SAÍDA: Aluno ${uid} abandonou a sala. Atraso Entrada: ${registroAtual.faltas} | Penalidade Abandono: ${faltasPeloAbandono} | Total Acumulado: ${faltasTotaisAtualizadas}`);
             enviarComando("APROVADO"); 
 
             delete ocupandoSensor[uid];
-            return { uid, status: "SAIU", faltas: faltasTotaisAtualizadas };
+            return;
         }
 
-        // SE NÃO EXISTE REGISTRO: É a primeira batida (ENTRADA)
+        // FLUXO DE PRIMEIRA ENTRADA DO ALUNO
         const segundos = Math.floor((Date.now() - inicioAula) / 1000);
         const faltas = Math.min(Math.floor(segundos / 25), 4);
         const status = faltas === 0 ? "PRESENTE" : "ATRASADO";
@@ -190,49 +189,23 @@ async function registrarPresencaMecanismo(uid) {
             [uid, status, faltas]
         );
 
-        console.log(`[ENTRADA] Aluno ${uid} registrado como ${status}.`);
+        console.log(`[AUDITORIA] ENTRADA: Aluno ${uid} registrado com sucesso. Status: ${status} | Faltas Iniciais: ${faltas}`);
         enviarComando("APROVADO");
 
         delete ocupandoSensor[uid];
-        return { uid, status, faltas };
 
     } catch (error) {
-        console.error("Erro no mecanismo de presença/saída:", error.message);
+        console.error("[DATABASE] Erro crítico no mecanismo de presença/saída:", error.message);
         enviarComando("NEGADO");
         throw error;
     }
 }
 
 // =======================================================
-// 3. ROTAS DA API
+// 3. ROTAS ATIVAS DA API
 // =======================================================
 
-app.post("/simulador/sensor", async (req, res) => {
-    try {
-        const { uid, distancia } = req.body;
-        if (!uid || distancia === undefined) {
-            return res.status(400).json({ erro: "O body deve conter 'uid' e 'distancia'" });
-        }
-        const resultado = await processarLeitura(uid, distancia);
-        res.json({ mensagem: "Leitura processada com sucesso", resultado });
-    } catch (error) {
-        res.status(500).json({ erro: error.message });
-    }
-});
-
-app.post("/login", async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        if (email === "ana@escola.edu.br" && password === "aluno123") {
-            res.json({ success: true, user: { name: "Ana Lima", role: "aluno" } });
-        } else {
-            res.status(401).json({ erro: "E-mail ou senha incorretos." });
-        }
-    } catch (error) {
-        res.status(500).json({ erro: "Erro no servidor." });
-    }
-});
-
+// Inicializa o cronômetro da aula corrente e reseta a tabela de presença diária
 app.post("/aula/iniciar", async (req, res) => {
     try {
         await pool.query("TRUNCATE TABLE presencas RESTART IDENTITY CASCADE;");
@@ -244,55 +217,54 @@ app.post("/aula/iniciar", async (req, res) => {
         }
 
         inicioAula = Date.now();
-        console.log("Banco de presenças limpo. Aula iniciada em:", new Date(inicioAula).toLocaleTimeString());
+        console.log("[SYSTEM] Banco de presenças limpo. Nova aula iniciada às:", new Date(inicioAula).toLocaleTimeString());
         
-        res.json({ mensagem: "Aula iniciada com sucesso! Leituras anteriores foram limhas.", inicio: inicioAula });
+        res.json({ mensagem: "Aula iniciada com sucesso! Leituras anteriores foram limpas.", inicio: inicioAula });
     } catch (error) {
-        console.error("Erro ao iniciar nova aula no banco:", error.message);
+        console.error("[DATABASE] Erro ao iniciar nova aula no banco:", error.message);
         res.status(500).json({ erro: "Falha ao limpar o histórico para iniciar a nova aula." });
     }
 });
 
+// Envia sinal ao hardware informando que o sistema aguarda uma nova tag para cadastro
 app.post("/cadastro/iniciar", (req, res) => {
-    console.log("Comando recebido: MODO_CADASTRO");
+    console.log("[API] Comando recebido: MODO_CADASTRO acionado.");
     enviarComando("MODO_CADASTRO");
     return res.status(200).json({ mensagem: "Comando de modo cadastro enviado!" });
 });
 
+// Salva de forma persistente os dados de um novo aluno no banco de dados
 app.post("/cadastro/salvar", async (req, res) => {
     try {
         const { uid, nome } = req.body;
         await pool.query(`INSERT INTO alunos (uid, nome) VALUES ($1, $2)`, [uid, nome]);
         enviarComando("CADASTRO_OK");
+        console.log(`[DATABASE] Novo aluno registrado -> Nome: ${nome} | Tag: ${uid}`);
         res.json({ sucesso: true, mensagem: "Aluno cadastrado!" });
     } catch (error) {
         enviarComando("NEGADO");
+        console.error("[DATABASE] Falha ao cadastrar aluno:", error.message);
         res.status(500).json({ erro: "Falha ao cadastrar." });
     }
 });
 
-app.post("/presenca", async (req, res) => {
+// Polling do Frontend: Consulta a memória em busca da última tag lida para popular os inputs de cadastro
+app.get("/cadastro/status", (req, res) => {
+    res.json(ultimaTagLida || { uid: null });
+    ultimaTagLida = null; // Limpa o buffer de memória após o consumo
+});
+
+// Retorna todos os alunos cadastrados no sistema
+app.get("/alunos", async (req, res) => {
     try {
-        const { uid } = req.body;
-        const resultado = await registrarPresencaMecanismo(uid);
-        res.json(resultado);
+        const result = await pool.query(`SELECT * FROM alunos`);
+        res.json(result.rows);
     } catch (error) {
-        enviarComando("NEGADO");
         res.status(500).json({ erro: error.message });
     }
 });
 
-app.get("/cadastro/status", (req, res) => {
-    console.log(`[POSTMAN] Consultou a última Tag: ${ultimaTagLida ? ultimaTagLida.uid : "Nenhuma tag na memória"}`);
-    res.json(ultimaTagLida || { uid: null });
-    ultimaTagLida = null; 
-});
-
-app.get("/alunos", async (req, res) => {
-    const result = await pool.query(`SELECT * FROM alunos`);
-    res.json(result.rows);
-});
-
+// Retorna o relatório em tempo real do diário de chamada
 app.get("/presencas", async (req, res) => {
     try {
         const result = await pool.query(`SELECT * FROM presencas ORDER BY id DESC`);
@@ -302,13 +274,6 @@ app.get("/presencas", async (req, res) => {
     }
 });
 
-process.stdin.on("data", (data) => {
-    if(parser) {
-        const input = data.toString().trim();
-        parser.emit("data", input + "\n");
-    }
-});
-
 app.listen(3000, '0.0.0.0', () => {
-    console.log("Servidor rodando na porta 3000 e aceitando conexões externas");
+    console.log("[SYSTEM] Servidor rodando na porta 3000 e aceitando conexões na rede.");
 });
