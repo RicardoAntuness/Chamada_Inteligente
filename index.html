@@ -11,19 +11,20 @@
             --secondary: #18bc9c; 
             --warning: #f39c12;
             --danger: #e74c3c; 
+            --orange: #d35400;
             --text: #333; 
             --card-bg: #fff; 
         }
         * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-        h1, h2 { color: var(--primary); }
+        h1, h2 { color: var(--primary); margin-top: 0; }
         .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .card { background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .card { background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: space-between; }
         .full-width { grid-column: 1 / -1; }
         button { background: var(--secondary); color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         button:hover { opacity: 0.8; }
         button.btn-danger { background: var(--danger); }
-        input { padding: 10px; width: calc(100% - 22px); margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        input { padding: 10px; width: 100%; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
         .flex-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
@@ -34,19 +35,42 @@
         .badge-atrasado { background: var(--warning); color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold; }
         .badge-ausente { background: var(--danger); color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold; }
         
-        .status-box { padding: 10px; background: #eee; border-radius: 4px; font-family: monospace; font-weight: bold; }
+        .status-box { padding: 10px; background: #eee; border-radius: 4px; font-family: monospace; font-weight: bold; margin-bottom: 0; }
         .text-muted { color: #7f8c8d; font-size: 0.9em; }
+
+        /* Estilos do Timer Inteligente */
+        .timer-container { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #2c3e50; color: white; padding: 15px; border-radius: 8px; text-align: center; }
+        .timer-display { font-size: 2.5em; font-weight: bold; font-family: monospace; line-height: 1em; margin-bottom: 5px; }
+        .timer-bloco { font-size: 0.9em; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        .progress-bar-bg { width: 100%; background: #444; height: 8px; border-radius: 4px; margin-top: 10px; overflow: hidden; }
+        .progress-bar-fill { width: 0%; height: 100%; background: var(--secondary); transition: width 1s linear, background-color 0.3s; }
+        
+        .mini-tabela { font-size: 0.75em; width: 100%; margin-top: 8px; }
+        .mini-tabela th { background: #34495e; padding: 4px; }
+        .mini-tabela td { padding: 4px; background: #fafafa; }
     </style>
 </head>
 <body>
 
-    <h1>Painel do Professor - Validação de Hardware</h1>
+    <h1>Painel do Professor - Chamada Inteligente</h1>
 
     <div class="container">
-        <div class="card">
-            <h2>1. Controle da Aula</h2>
-            <button onclick="iniciarAula()">⏱ Iniciar Aula</button>
-            <p id="aula-status" class="status-box">Aula não iniciada.</p>
+        <div class="card" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div style="display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <h2>1. Controle da Aula</h2>
+                    <button onclick="iniciarAula()" style="width: 100%; padding: 12px;">⏱ Iniciar Aula (100s)</button>
+                </div>
+                <p id="aula-status" class="status-box">Aula não iniciada.</p>
+            </div>
+            
+            <div class="timer-container">
+                <div class="timer-display" id="timer-regressivo">000s</div>
+                <div class="timer-bloco" id="timer-status-bloco">Sem Aula</div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="timer-progress"></div>
+                </div>
+            </div>
         </div>
 
         <div class="card">
@@ -61,6 +85,46 @@
                 <button onclick="salvarAluno()">💾 Salvar no Banco</button>
                 <span id="cadastro-feedback" class="text-muted"></span>
             </div>
+        </div>
+
+        <div class="card full-width">
+            <h2>Estrutura Métrica de Faltas (Duração da Aula: 100 segundos)</h2>
+            <table class="mini-tabela" style="font-size: 0.9em;">
+                <thead>
+                    <tr>
+                        <th>Tempo Decorrido</th>
+                        <th>Bloco Vigente</th>
+                        <th>Penalidade na Entrada</th>
+                        <th>Penalidade se Sair Nesse Bloco</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><b>0s até 24s</b></td>
+                        <td><span class="badge-presente">Bloco 1</span></td>
+                        <td>0 faltas (Presente)</td>
+                        <td>4 faltas (Falta Total)</td>
+                    </tr>
+                    <tr>
+                        <td><b>25s até 49s</b></td>
+                        <td><span class="badge-atrasado" style="background:var(--warning)">Bloco 2</span></td>
+                        <td>1 falta (Atrasado)</td>
+                        <td>3 faltas</td>
+                    </tr>
+                    <tr>
+                        <td><b>50s até 74s</b></td>
+                        <td><span class="badge-atrasado" style="background:var(--orange)">Bloco 3</span></td>
+                        <td>2 faltas (Atrasado)</td>
+                        <td>2 faltas</td>
+                    </tr>
+                    <tr>
+                        <td><b>75s até 99s</b></td>
+                        <td><span class="badge-ausente">Bloco 4</span></td>
+                        <td>3 faltas (Atrasado)</td>
+                        <td>1 falta</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
         <div class="card full-width">
@@ -82,12 +146,62 @@
 
     <script>
         const API_URL = "http://192.168.3.51:3000";
+        let timerInterval = null;
+
+        function gerenciarTimerVisual(tempoInicial) {
+            if (timerInterval) clearInterval(timerInterval);
+
+            const display = document.getElementById("timer-regressivo");
+            const statusBloco = document.getElementById("timer-status-bloco");
+            const barra = document.getElementById("timer-progress");
+
+            timerInterval = setInterval(() => {
+                const segundosDecorridos = Math.floor((Date.now() - tempoInicial) / 1000);
+                
+                if (segundosDecorridos >= 100) {
+                    display.innerText = "100s";
+                    statusBloco.innerText = "Aula Encerrada";
+                    statusBloco.style.color = "var(--danger)";
+                    barra.style.width = "100%";
+                    barra.style.backgroundColor = "var(--danger)";
+                    clearInterval(timerInterval);
+                    return;
+                }
+
+                // Atualiza o display numérico e a barra de preenchimento
+                display.innerText = `${String(segundosDecorridos).padStart(3, '0')}s`;
+                barra.style.width = `${segundosDecorridos}%`;
+
+                // Aplica a lógica exata de cores e blocos do seu server.js
+                if (segundosDecorridos < 25) {
+                    statusBloco.innerText = "Bloco 1: 0 Faltas";
+                    statusBloco.style.color = "var(--secondary)";
+                    barra.style.backgroundColor = "var(--secondary)";
+                } else if (segundosDecorridos < 50) {
+                    statusBloco.innerText = "Bloco 2: +1 Falta";
+                    statusBloco.style.color = "var(--warning)";
+                    barra.style.backgroundColor = "var(--warning)";
+                } else if (segundosDecorridos < 74) {
+                    statusBloco.innerText = "Bloco 3: +2 Faltas";
+                    statusBloco.style.color = "var(--orange)";
+                    barra.style.backgroundColor = "var(--orange)";
+                } else {
+                    statusBloco.innerText = "Bloco 4: +3 Faltas";
+                    statusBloco.style.color = "var(--danger)";
+                    barra.style.backgroundColor = "var(--danger)";
+                }
+            }, 1000);
+        }
 
         async function iniciarAula() {
             try {
                 const res = await fetch(`${API_URL}/aula/iniciar`, { method: 'POST' });
                 const data = await res.json();
-                document.getElementById('aula-status').innerHTML = `✅ ${data.mensagem || 'Aula iniciada com sucesso!'}`;
+                document.getElementById('aula-status').innerHTML = `✅ Aula Iniciada!`;
+                
+                // Dispara o cronômetro baseado no timestamp retornado pelo servidor
+                gerenciarTimerVisual(Date.now());
+                carregarPresencas();
             } catch (e) {
                 document.getElementById('aula-status').innerHTML = `❌ Erro ao conectar com a API`;
             }
@@ -134,11 +248,8 @@
                 });
                 
                 document.getElementById('cadastro-feedback').innerText = "💾 Salvo com sucesso!";
-                
-                // Limpa os campos para o próximo cadastro
                 document.getElementById('uid-input').value = "";
                 document.getElementById('nome-input').value = "";
-                
                 carregarAlunos();
             } catch (e) {
                 document.getElementById('cadastro-feedback').innerText = "❌ Erro ao salvar aluno";
@@ -155,7 +266,6 @@
                     tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Nenhum aluno cadastrado.</td></tr>`;
                     return;
                 }
-                
                 tbody.innerHTML = alunos.map(a => `<tr><td>${a.id}</td><td>${a.uid}</td><td>${a.nome}</td></tr>`).join('');
             } catch (e) {
                 document.getElementById('tabela-alunos').innerHTML = `<tr><td colspan="3" style="color:var(--danger);">Erro ao buscar alunos.</td></tr>`;
@@ -174,12 +284,10 @@
                 }
 
                 tbody.innerHTML = presencas.map(p => {
-                    // Define dinamicamente o tipo de badge baseado no status real
                     let badgeClass = 'badge-atrasado';
                     if (p.status === 'PRESENTE') badgeClass = 'badge-presente';
-                    else if (p.status === 'AUSENTE') badgeClass = 'badge-ausente';
+                    else if (p.status === 'AUSENTE' || p.status === 'SAIU') badgeClass = 'badge-ausente';
 
-                    // Tratamento seguro para contagem de faltas (evita undefined/null)
                     const totalFaltas = p.faltas !== undefined && p.faltas !== null ? p.faltas : 0;
 
                     return `
@@ -195,12 +303,9 @@
             }
         }
 
-        // Inicialização automática ao abrir a tela
         window.onload = () => {
             carregarAlunos();
             carregarPresencas();
-            
-            // Monitoramento ativo a cada 3 segundos
             setInterval(carregarPresencas, 3000);
         };
     </script>
