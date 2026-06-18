@@ -73,40 +73,29 @@ function enviarComando(comando) {
 }
 
 // =======================================================
-// 2. LÓGICA CENTRAL (CORRIGIDA: LIBERAÇÃO APENAS SEM NADA)
+// 2. LÓGICA CENTRAL
 // =======================================================
 async function processarLeitura(uid, distancia) {
     ultimaTagLida = { uid };
 
     console.log(`[HARDWARE] Arduino leu a Tag: ${uid} | Distância: ${distancia}cm`);
 
-    // REGRA REGULAMENTADA: Se a distância for maior que 30cm, o cartão está longe.
-    // Para evitar que leituras fantasmas "no ar" liberem o sensor enquanto o cartão sai,
-    // nós mudamos o estado do ocupandoSensor para "afastando". O sensor só aceitará este cartão
-    // de novo se ele sumir completamente do leitor ou se a leitura for interrompida.
     if (distancia > 30) {
         if (ocupandoSensor[uid] === true) {
             console.log(`[AFASTAMENTO DETECTADO] Aluno ${uid} movendo cartão para longe. Aguardando desobstrução completa...`);
-            ocupandoSensor[uid] = "afastando"; // Muda o estado para trancar novas leituras na mesma transição
+            ocupandoSensor[uid] = "afastando"; 
         }
         return { acao: "afastando", uid };
     }
 
-    // Regra de Aproximação (Gatilho de entrada e saída na faixa < 10cm)
     if (distancia >= 0 && distancia < 10) {
-        
-        // Se a tag está marcada como true ou como "afastando", significa que ela ainda não saiu completamente
-        // do raio de leitura física antes de gerar uma nova aproximação. Ignora para segurança!
         if (ocupandoSensor[uid]) {
-            // Se o aluno tentou aproximar o cartão sem que ele tenha saído totalmente do leitor RFID antes,
-            // nós resetamos para 'true' para exigir que ele afaste de verdade de forma limpa.
             if (ocupandoSensor[uid] === "afastando") {
                 ocupandoSensor[uid] = true; 
             }
             return { acao: "ignorado_nao_afastou_completamente", uid }; 
         }
 
-        // Se for um cartão totalmente NOVO ou um cartão que comprovadamente sumiu do leitor e voltou:
         const alunoCheck = await pool.query(`SELECT id, nome FROM alunos WHERE uid = $1`, [uid]);
 
         if (alunoCheck.rows.length === 0) {
@@ -114,7 +103,6 @@ async function processarLeitura(uid, distancia) {
             return { acao: "negado", uid, motivo: "Aluno não cadastrado" };
         }
 
-        // Tranca o sensor para este UID.
         ocupandoSensor[uid] = true;
         
         console.log(`[VALIDADO] Aluno ${alunoCheck.rows[0].nome}. Processando registro...`);
@@ -156,18 +144,25 @@ async function registrarPresencaMecanismo(uid) {
                 console.log(`[RE-ENTRADA] Aluno ${uid} mudou status para ${status}.`);
                 enviarComando("APROVADO");
                 
-                // IMPORTANTE: Após registrar com sucesso, limpamos o bloqueio imediatamente
-                // para permitir que o aluno saia logo em seguida se desejar, desde que afaste o cartão antes.
                 delete ocupandoSensor[uid];
                 return { uid, status, faltas };
             }
 
-            // OPÇÃO B: RECALCULAR FALTAS PROPORCIONAIS AO TEMPO EM AULA
+            // CORREÇÃO DA LÓGICA DA SAÍDA: Mapeamento direto por faixas de bloco para evitar erros matemáticos
             const segundosPresente = Math.floor((Date.now() - inicioAula) / 1000);
-            const tempoTotalAula = 100; 
-            
-            const tempoRestante = Math.max(0, tempoTotalAula - segundosPresente);
-            const faltasSaida = Math.min(Math.floor(tempoRestante / 25), 4);
+            let faltasSaida = 4; // Padrão: Falta Total
+
+            if (segundosPresente < 25) {
+                faltasSaida = 4; // Saiu no Bloco 1 -> Perdeu a aula toda (4 faltas)
+            } else if (segundosPresente < 50) {
+                faltasSaida = 3; // Saiu no Bloco 2 -> Tomou 3 faltas
+            } else if (segundosPresente < 75) {
+                faltasSaida = 2; // Saiu no Bloco 3 -> Tomou 2 faltas
+            } else if (segundosPresente < 100) {
+                faltasSaida = 1; // Saiu no Bloco 4 -> Tomou 1 falta
+            } else {
+                faltasSaida = 0; // Saiu após o fim da aula completa -> 0 faltas
+            }
 
             await pool.query(
                 "UPDATE presencas SET status = $1, faltas = $2 WHERE id = $3",
@@ -177,7 +172,6 @@ async function registrarPresencaMecanismo(uid) {
             console.log(`[SAÍDA] Aluno ${uid} registrou saída. Tempo presente: ${segundosPresente}s. Faltas aplicadas: ${faltasSaida}`);
             enviarComando("APROVADO"); 
 
-            // IMPORTANTE: Limpa o bloqueio do sensor após o término do processamento do registro
             delete ocupandoSensor[uid];
             return { uid, status: "SAIU", faltas: faltasSaida };
         }
@@ -195,7 +189,6 @@ async function registrarPresencaMecanismo(uid) {
         console.log(`[ENTRADA] Aluno ${uid} registrado como ${status}.`);
         enviarComando("APROVADO");
 
-        // IMPORTANTE: Limpa o bloqueio do sensor após o término do processamento do registro
         delete ocupandoSensor[uid];
         return { uid, status, faltas };
 
