@@ -6,90 +6,106 @@ const { ReadlineParser } = require("@serialport/parser-readline");
 
 const app = express();
 
-// CONFIGURAÇÃO DE CORS - Cole exatamente isto:
+// CONFIGURAÇÃO DE CORS (Totalmente aberta para testes)
 app.use(cors({
-    origin: "http://10.1.24.27:5177", // A porta exata do seu Vite
+    origin: true, // Aceita qualquer frontend, de qualquer IP ou porta
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
 }));
 
 app.use(express.json());
 
-// ... resto do seu código (rotas, etc) ...
-
-// Variável mutável para controlar o início da aula
+// Variáveis de controle
 let inicioAula = null; 
 let ultimaTagLida = null;
 const ocupandoSensor = {}; 
 
-// ===============================
-// SERIAL ARDUINO
-// ===============================
+// =======================================================
+// 1. CONFIGURAÇÃO TOLERANTE A FALHAS DA SERIAL (ARDUINO)
+// =======================================================
+let portaArduino = null;
+let parser = null;
 
-const portaArduino = new SerialPort({
-    path: "/dev/ttyACM0", // <--- Padrão Linux para Arduino na Raspberry
-    baudRate: 9600
-});
+try {
+    portaArduino = new SerialPort({
+        path: "/dev/ttyACM0", // Padrão Linux para Arduino na Raspberry
+        baudRate: 9600
+    });
 
-const parser = portaArduino.pipe(new ReadlineParser({ delimiter: '\n' }));
+    parser = portaArduino.pipe(new ReadlineParser({ delimiter: '\n' }));
 
-portaArduino.on("open", () => console.log("Arduino conectado."));
-portaArduino.on("error", (err) => console.error("Erro Serial:", err.message));
+    portaArduino.on("open", () => console.log("Arduino conectado com sucesso na Raspberry."));
+    portaArduino.on("error", (err) => console.log(`[AVISO SERIAL] Modo simulação ativo. Arduino não detectado: ${err.message}`));
+
+    // Escutando o Arduino real
+    parser.on("data", async (linha) => {
+        try {
+            const texto = linha.trim();
+            if (!texto.startsWith("{")) return; 
+
+            const dados = JSON.parse(texto);
+            if (dados.uid && dados.distancia !== undefined) {
+                await processarLeitura(dados.uid, dados.distancia);
+            }
+        } catch (error) {
+            console.error("Erro ao processar dados seriais:", error.message);
+        }
+    });
+
+} catch (error) {
+    console.log("[AVISO] Rodando sem Arduino. Use o Postman para simular leituras.");
+}
 
 function enviarComando(comando) {
     const json = JSON.stringify({ comando }) + "\n";
-    portaArduino.write(json, (err) => {
-        if (err) console.error("Erro ao enviar comando:", err.message);
-        else console.log("Comando enviado:", json.trim());
-    });
+    
+    // Se o Arduino estiver conectado e aberto, manda pra ele. Se não, simula no log.
+    if (portaArduino && portaArduino.isOpen) {
+        portaArduino.write(json, (err) => {
+            if (err) console.error("Erro ao enviar comando:", err.message);
+            else console.log("Comando enviado pro Arduino:", json.trim());
+        });
+    } else {
+        console.log(`[SIMULADOR DE HARDWARE] O Arduino piscaria/apitaria agora -> COMANDO: ${comando}`);
+    }
 }
 
-// ==========================================
-// ESCUTANDO O ARDUINO E APLICANDO AS REGRAS
-// ==========================================
+// =======================================================
+// 2. LÓGICA CENTRAL
+// =======================================================
+async function processarLeitura(uid, distancia) {
+    // Registra a última tag lida para a rota de status de cadastro
+    ultimaTagLida = { uid };
 
-parser.on("data", async (linha) => {
-
-    
-    try {
-        const texto = linha.trim();
-        if (!texto.startsWith("{")) return; 
-
-        const dados = JSON.parse(texto);
-        
-        if (dados.uid) {
-            ultimaTagLida = { uid: dados.uid };
-            const { uid, distancia } = dados;
-
-            if (distancia > 30) {
-                if (ocupandoSensor[uid]) {
-                    console.log(`[SAÍDA] Aluno ${uid} se afastou.`);
-                    delete ocupandoSensor[uid];
-                }
-                return;
-            }
-
-            if (distancia > 0 && distancia < 10) {
-                if (ocupandoSensor[uid]) return; 
-
-                const alunoCheck = await pool.query(
-                    `SELECT id, nome FROM alunos WHERE uid = $1`, [uid]
-                );
-
-                if (alunoCheck.rows.length === 0) {
-                    enviarComando("NEGADO");
-                    return;
-                }
-
-                ocupandoSensor[uid] = true;
-                console.log(`[VALIDADO] Aluno ${alunoCheck.rows[0].nome}. Registrando...`);
-                await registrarPresencaMecanismo(uid);
-            }
+    // Regra de Saída
+    if (distancia > 30) {
+        if (ocupandoSensor[uid]) {
+            console.log(`[SAÍDA] Aluno ${uid} se afastou do sensor.`);
+            delete ocupandoSensor[uid];
         }
-    } catch (error) {
-        console.error("Erro ao processar dados seriais:", error.message);
+        return { acao: "afastou", uid };
     }
-});
+
+    // Regra de Aproximação (Validação)
+    if (distancia > 0 && distancia < 10) {
+        if (ocupandoSensor[uid]) return { acao: "ignorado_ja_ocupando", uid }; 
+
+        const alunoCheck = await pool.query(`SELECT id, nome FROM alunos WHERE uid = $1`, [uid]);
+
+        if (alunoCheck.rows.length === 0) {
+            enviarComando("NEGADO");
+            return { acao: "negado", uid, motivo: "Aluno não cadastrado" };
+        }
+
+        ocupandoSensor[uid] = true;
+        console.log(`[VALIDADO] Aluno ${alunoCheck.rows[0].nome}. Registrando...`);
+        const registro = await registrarPresencaMecanismo(uid);
+        
+        return { acao: "validado", uid, registro };
+    }
+
+    return { acao: "intermediario", uid, distancia };
+}
 
 async function registrarPresencaMecanismo(uid) {
     if (!inicioAula) {
@@ -111,16 +127,29 @@ async function registrarPresencaMecanismo(uid) {
     return { uid, status, faltas };
 }
 
-// ===============================
-// ROTAS DE CADASTRO E PRESENÇA
-// ===============================
+// =======================================================
+// 3. ROTAS DA API
+// =======================================================
+
+// Rota auxiliar para simular o sensor via Postman (útil para debug remoto)
+app.post("/simulador/sensor", async (req, res) => {
+    try {
+        const { uid, distancia } = req.body;
+        
+        if (!uid || distancia === undefined) {
+            return res.status(400).json({ erro: "O body deve conter 'uid' e 'distancia'" });
+        }
+
+        const resultado = await processarLeitura(uid, distancia);
+        res.json({ mensagem: "Leitura processada com sucesso", resultado });
+    } catch (error) {
+        res.status(500).json({ erro: error.message });
+    }
+});
 
 app.post("/login", async (req, res) => {
     try {
         const { email, password } = req.body;
-        
-        // Exemplo: buscando no banco de dados (se você tiver uma tabela 'usuarios')
-        // Se ainda não tiver tabela de usuários, adicione uma lógica de teste:
         if (email === "ana@escola.edu.br" && password === "aluno123") {
             res.json({ success: true, user: { name: "Ana Lima", role: "aluno" } });
         } else {
@@ -139,14 +168,8 @@ app.post("/aula/iniciar", (req, res) => {
 
 app.post("/cadastro/iniciar", (req, res) => {
     console.log("Comando recebido: MODO_CADASTRO");
-    
-    // Dispara o comando serial sem aguardar o retorno
-    portaArduino.write(JSON.stringify({ comando: "MODO_CADASTRO" }) + "\n", (err) => {
-        if (err) console.error("Erro no write:", err.message);
-    });
-    
-    // Responde AGORA para o navegador, para evitar o "pending"
-    return res.status(200).json({ mensagem: "Comando enviado!" });
+    enviarComando("MODO_CADASTRO");
+    return res.status(200).json({ mensagem: "Comando de modo cadastro enviado!" });
 });
 
 app.post("/cadastro/salvar", async (req, res) => {
@@ -191,9 +214,12 @@ app.get("/presencas", async (req, res) => {
     }
 });
 
+// Permitir injeção manual pelo terminal (Node.js)
 process.stdin.on("data", (data) => {
-    const input = data.toString().trim();
-    parser.emit("data", input + "\n");
+    if(parser) {
+        const input = data.toString().trim();
+        parser.emit("data", input + "\n");
+    }
 });
 
 app.listen(3000, '0.0.0.0', () => {
