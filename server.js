@@ -154,13 +154,36 @@ app.post("/cadastro/iniciar", (req, res) => {
 
 app.post("/cadastro/salvar", async (req, res) => {
     try {
+        console.log("=================================");
+        console.log("REQUISIÇÃO RECEBIDA");
+        console.log(req.body);
+        console.log("=================================");
+
         const { uid, nome } = req.body;
-        await pool.query(`INSERT INTO alunos (uid, nome) VALUES ($1, $2)`, [uid, nome]);
+
+        await pool.query(
+            `INSERT INTO alunos (uid, nome) VALUES ($1, $2)`,
+            [uid, nome]
+        );
+
+        console.log(`ALUNO SALVO: ${nome} (${uid})`);
+
         enviarComando("CADASTRO_OK");
-        res.json({ sucesso: true, mensagem: "Aluno cadastrado!" });
+
+        res.json({
+            sucesso: true,
+            mensagem: "Aluno cadastrado!"
+        });
+
     } catch (error) {
+        console.error("ERRO AO SALVAR:");
+        console.error(error);
+
         enviarComando("NEGADO");
-        res.status(500).json({ erro: "Falha ao cadastrar." });
+
+        res.status(500).json({
+            erro: error.message
+        });
     }
 });
 
