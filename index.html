@@ -81,10 +81,9 @@
         <div class="card">
             <h2>2. Cadastro de Alunos</h2>
             <div class="flex-row">
-                <button onclick="modoCadastro()">📡 Avisar Arduino</button>
-                <button onclick="consultarTag()">🔄 Puxar Tag</button>
+                <button id="btn-capturar" onclick="capturarNovaTag()" style="width: 100%; padding: 12px; background: #2980b9;">📡 Capturar Nova Tag</button>
             </div>
-            <input type="text" id="uid-input" placeholder="A UID da tag aparecerá aqui..." readonly>
+            <input type="text" id="uid-input" placeholder="A UID da tag aparecerá aqui automaticamente..." readonly>
             <input type="text" id="nome-input" placeholder="Digite o nome do aluno">
             <div class="flex-row">
                 <button onclick="salvarAluno()">💾 Salvar no Banco</button>
@@ -164,14 +163,12 @@
 
         function gerenciarTimerVisual(tempoInicial) {
             if (timerInterval) clearInterval(timerInterval);
-
             const display = document.getElementById("timer-regressivo");
             const statusBloco = document.getElementById("timer-status-bloco");
             const barra = document.getElementById("timer-progress");
 
             timerInterval = setInterval(() => {
                 const segundosDecorridos = Math.floor((Date.now() - tempoInicial) / 1000);
-                
                 if (segundosDecorridos >= 100) {
                     display.innerText = "100s";
                     statusBloco.innerText = "Aula Encerrada";
@@ -181,7 +178,6 @@
                     clearInterval(timerInterval);
                     return;
                 }
-
                 display.innerText = `${String(segundosDecorridos).padStart(3, '0')}s`;
                 barra.style.width = `${segundosDecorridos}%`;
 
@@ -208,9 +204,7 @@
         async function iniciarAula() {
             try {
                 const res = await fetch(`${API_URL}/aula/iniciar`, { method: 'POST' });
-                const data = await res.json();
                 document.getElementById('aula-status').innerHTML = `✅ Aula Iniciada!`;
-                
                 gerenciarTimerVisual(Date.now());
                 carregarPresencas();
             } catch (e) {
@@ -218,41 +212,70 @@
             }
         }
 
-        async function modoCadastro() { 
-            try {
-                await fetch(`${API_URL}/cadastro/iniciar`, { method: 'POST' }); 
-                document.getElementById('cadastro-feedback').className = "text-muted";
-                document.getElementById('cadastro-feedback').innerText = "📡 Arduino pronto! Aproxime a tag...";
-            } catch (e) {
-                document.getElementById('cadastro-feedback').innerText = "❌ Erro ao ativar modo cadastro";
-            }
-        }
-
-        async function consultarTag() {
+        // NOVA FUNÇÃO UNIFICADA E INTELIGENTE
+        async function capturarNovaTag() {
             const feedback = document.getElementById('cadastro-feedback');
+            const btn = document.getElementById('btn-capturar');
+            document.getElementById('uid-input').value = ""; // Limpa anterior
+
             try {
-                const res = await fetch(`${API_URL}/cadastro/status`);
-                const data = await res.json();
+                // 1. Avisa o Arduino para escutar
+                feedback.className = "text-muted";
+                feedback.innerText = "📡 Acionando Arduino...";
+                await fetch(`${API_URL}/cadastro/iniciar`, { method: 'POST' }); 
                 
-                if (data.uid) {
-                    // Validação Inteligente local/API para verificar se a tag já existe no cache
-                    const jaExiste = listaAlunosCache.some(aluno => aluno.uid.toUpperCase() === data.uid.toUpperCase());
-                    
-                    document.getElementById('uid-input').value = data.uid;
-                    
-                    if (jaExiste || data.status === "NEGADO") {
-                        feedback.className = "text-danger";
-                        feedback.innerText = "❌ Negado: Esta tag já está cadastrada para outro aluno!";
-                    } else {
-                        feedback.className = "text-muted";
-                        feedback.innerText = "✅ Tag capturada com sucesso!";
+                feedback.innerText = "📡 Sensor Pronto! Aproxime a tag no leitor...";
+                btn.disabled = true;
+                btn.innerText = "⏳ Aguardando leitura...";
+                btn.style.background = "#7f8c8d";
+
+                // 2. Inicia polling automático a cada 1.5s para capturar a resposta
+                let tentativas = 0;
+                const maxTentativas = 15; // Cancela após ~22 segundos sem tag
+
+                const loopVerificacao = setInterval(async () => {
+                    tentativas++;
+                    try {
+                        const res = await fetch(`${API_URL}/cadastro/status`);
+                        const data = await res.json();
+                        
+                        if (data.uid) {
+                            clearInterval(loopVerificacao);
+                            document.getElementById('uid-input').value = data.uid;
+                            
+                            // Verifica duplicidade
+                            const jaExiste = listaAlunosCache.some(aluno => aluno.uid.toUpperCase() === data.uid.toUpperCase());
+                            
+                            if (jaExiste || data.status === "NEGADO") {
+                                feedback.className = "text-danger";
+                                feedback.innerText = "❌ Negado: Esta tag já está cadastrada!";
+                            } else {
+                                feedback.className = "text-muted";
+                                feedback.innerText = "✅ Tag capturada com sucesso!";
+                            }
+                            restaurarBotao();
+                        } else if (tentativas >= maxTentativas) {
+                            clearInterval(loopVerificacao);
+                            feedback.className = "text-danger";
+                            feedback.innerText = "⚠️ Tempo esgotado! Nenhuma tag detectada.";
+                            restaurarBotao();
+                        }
+                    } catch (e) {
+                        clearInterval(loopVerificacao);
+                        feedback.innerText = "❌ Erro ao ler resposta do sensor.";
+                        restaurarBotao();
                     }
-                } else {
-                    feedback.className = "text-muted";
-                    feedback.innerText = "⚠️ Nenhuma tag detectada no sensor.";
-                }
+                }, 1500);
+
             } catch (e) {
-                feedback.innerText = "❌ Erro ao puxar dados da tag";
+                feedback.innerText = "❌ Erro ao ativar modo cadastro";
+                restaurarBotao();
+            }
+
+            function restaurarBotao() {
+                btn.disabled = false;
+                btn.innerText = "📡 Capturar Nova Tag";
+                btn.style.background = "#2980b9";
             }
         }
 
