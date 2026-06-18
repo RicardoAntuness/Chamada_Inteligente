@@ -3,69 +3,208 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel do Professor - Validação</title>
+    <title>Painel do Professor - Chamada Inteligente</title>
     <style>
-        :root { 
-            --bg: #f4f7f6; 
-            --primary: #2c3e50; 
-            --secondary: #18bc9c; 
-            --warning: #f39c12;
-            --danger: #e74c3c; 
-            --orange: #d35400;
-            --text: #333; 
-            --card-bg: #fff; 
+        /* ============================================================
+           Design System — Chamada Inteligente
+           Paleta: dark navy + ciano + verde/vermelho semânticos
+           ============================================================ */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+        :root {
+            --bg-base:        #0F172A;
+            --bg-surface:     #1E293B;
+            --bg-elevated:    #263348;
+            --bg-input:       #162032;
+
+            --accent:         #38BDF8;
+            --accent-dim:     rgba(56, 189, 248, 0.15);
+            --accent-glow:    rgba(56, 189, 248, 0.35);
+
+            --green:          #10B981;
+            --green-dim:      rgba(16, 185, 129, 0.15);
+            --red:            #EF4444;
+            --red-dim:        rgba(239, 68, 68, 0.15);
+            --yellow:         #F59E0B;
+            --yellow-dim:     rgba(245, 158, 11, 0.15);
+            --orange:         #D35400;
+
+            --text-primary:   #F8FAFC;
+            --text-secondary: #94A3B8;
+            --text-muted:     #475569;
+            --text-tag:       #7DD3FC;
+
+            --border:         rgba(148, 163, 184, 0.12);
+            --border-focus:   rgba(56, 189, 248, 0.5);
+
+            --radius-sm:      6px;
+            --radius:         10px;
+            --radius-lg:      16px;
+            --radius-pill:    999px;
+
+            --shadow:         0 4px 16px rgba(0,0,0,0.5);
+            --shadow-glow:    0 0 20px rgba(56, 189, 248, 0.2);
+
+            --transition:     0.18s ease;
+            --font-ui:        'Inter', system-ui, sans-serif;
+            --font-mono:      'JetBrains Mono', 'Fira Code', monospace;
         }
-        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-        h1, h2 { color: var(--primary); margin-top: 0; }
-        .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .card { background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: space-between; }
+
+        /* ── Reset & Base ───────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: var(--font-ui);
+            background: var(--bg-base);
+            color: var(--text-primary);
+            line-height: 1.5;
+            padding: 24px;
+            -webkit-font-smoothing: antialiased;
+        }
+        h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 24px; color: var(--text-primary); }
+        h2 { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 16px; }
+
+        /* ── Layout Container ───────────────────────────────────── */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
         .full-width { grid-column: 1 / -1; }
-        button { background: var(--secondary); color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        button:hover { opacity: 0.8; }
-        button.btn-danger { background: var(--danger); }
-        input { padding: 10px; width: 100%; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
-        .flex-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 12px 8px; text-align: left; }
-        th { background-color: var(--primary); color: white; }
-        
-        /* Badges de Status Modernos */
-        .badge-presente { background: var(--secondary); color: white; padding: 6px 12px; border-radius: 12px; font-size: 0.85em; font-weight: bold; display: inline-block; }
-        .badge-atrasado { background: var(--warning); color: white; padding: 6px 12px; border-radius: 12px; font-size: 0.85em; font-weight: bold; display: inline-block; }
-        .badge-ausente { background: var(--danger); color: white; padding: 6px 12px; border-radius: 12px; font-size: 0.85em; font-weight: bold; display: inline-block; }
-        
-        /* Destaque para a Coluna de Faltas */
-        .coluna-faltas { font-size: 1.1em; color: var(--danger); font-weight: bold; }
-        .zero-faltas { color: var(--secondary) !important; font-weight: bold; }
 
-        .status-box { padding: 10px; background: #eee; border-radius: 4px; font-family: monospace; font-weight: bold; margin-bottom: 0; }
-        .text-muted { color: #7f8c8d; font-size: 0.9em; }
-        .text-danger { color: var(--danger) !important; font-weight: bold; }
+        /* ── Cards / Surfaces ───────────────────────────────────── */
+        .card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
 
-        /* Estilos do Timer Inteligente */
-        .timer-container { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #2c3e50; color: white; padding: 15px; border-radius: 8px; text-align: center; }
-        .timer-display { font-size: 2.5em; font-weight: bold; font-family: monospace; line-height: 1em; margin-bottom: 5px; }
-        .timer-bloco { font-size: 0.9em; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
-        .progress-bar-bg { width: 100%; background: #444; height: 8px; border-radius: 4px; margin-top: 10px; overflow: hidden; }
-        .progress-bar-fill { width: 0%; height: 100%; background: var(--secondary); transition: width 1s linear, background-color 0.3s; }
+        /* ── Buttons ────────────────────────────────────────────── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 11px 18px;
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            font-weight: 600;
+            transition: var(--transition);
+            white-space: nowrap;
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+        }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; }
         
-        .mini-tabela { font-size: 0.9em; width: 100%; margin-top: 8px; }
-        .mini-tabela th { background: #34495e; padding: 8px; }
-        .mini-tabela td { padding: 8px; background: #fafafa; }
-        .nota-regra { margin-top: 10px; padding: 10px; background-color: #fcf8e3; border-left: 4px solid #f39c12; font-size: 0.9em; border-radius: 4px; }
+        .btn-primary { background: var(--accent); color: var(--bg-base); }
+        .btn-primary:not(:disabled):hover { background: #7DD3FC; box-shadow: 0 0 14px var(--accent-glow); }
+        
+        .btn-secondary { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); }
+        .btn-secondary:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+        
+        .btn-danger { background: var(--red-dim); color: var(--red); border: 1px solid transparent; }
+        .btn-danger:not(:disabled):hover { border-color: var(--red); }
+        
+        .btn-header { padding: 6px 12px; font-size: 0.8rem; float: right; }
+
+        /* ── Form Elements ──────────────────────────────────────── */
+        input.form-input {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            padding: 10px 14px;
+            font-size: 0.875rem;
+            transition: var(--transition);
+            outline: none;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+        input.form-input::placeholder { color: var(--text-muted); }
+        input.form-input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-dim); }
+        input.form-input[readonly] { background: rgba(0,0,0,0.15); color: var(--text-secondary); cursor: not-allowed; }
+        .flex-row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+
+        /* ── Status & Feedback Elements ─────────────────────────── */
+        .status-box {
+            padding: 12px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-top: 12px;
+        }
+        .text-muted { color: var(--text-secondary); font-size: 0.85rem; }
+        .text-danger { color: var(--red) !important; font-weight: 600; }
+
+        /* ── Timers e Animações ─────────────────────────────────── */
+        .timer-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 20px;
+            border-radius: var(--radius);
+            text-align: center;
+            box-shadow: var(--shadow-glow);
+        }
+        .timer-display { font-size: 2.5rem; font-weight: 700; font-family: var(--font-mono); color: var(--accent); margin-bottom: 4px; }
+        .timer-bloco { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; transition: color var(--transition); }
+        .progress-bar-bg { width: 100%; background: var(--bg-input); height: 6px; border-radius: var(--radius-pill); margin-top: 12px; overflow: hidden; }
+        .progress-bar-fill { width: 0%; height: 100%; background: var(--accent); transition: width 1s linear, background-color var(--transition); }
+
+        /* ── Tabelas Estruturadas ───────────────────────────────── */
+        .table-wrap { overflow-x: auto; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+        th { text-align: left; padding: 12px 14px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-secondary); border-bottom: 2px solid var(--border); font-weight: 600; }
+        td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        tbody tr:hover td { background: var(--bg-elevated); }
+        
+        .mini-tabela th { background: var(--bg-input); padding: 10px; }
+        .mini-tabela td { padding: 10px; }
+
+        /* ── Badges Semânticas (Chips) ─────────────────────────── */
+        .badge { font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: var(--radius-pill); display: inline-block; text-transform: uppercase; letter-spacing: 0.02em; }
+        .badge-presente { background: var(--green-dim); color: var(--green); }
+        .badge-atrasado { background: var(--yellow-dim); color: var(--yellow); }
+        .badge-ausente { background: var(--red-dim); color: var(--red); }
+        
+        .tag-id { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-tag); background: var(--accent-dim); padding: 2px 6px; border-radius: 4px; }
+        .student-name { color: var(--text-primary); font-weight: 500; }
+        .coluna-faltas { font-weight: 600; color: var(--red); }
+        .zero-faltas { color: var(--green) !important; }
+
+        .nota-regra { margin-top: 14px; padding: 12px; background-color: var(--bg-input); border-left: 4px solid var(--yellow); font-size: 0.85rem; border-radius: var(--radius-sm); color: var(--text-secondary); }
+        
+        /* Scrollbar Costumizado */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     </style>
 </head>
 <body>
 
-    <h1>Painel do Professor - Chamada Inteligente</h1>
+    <h1>Painel do Professor — Chamada Inteligente</h1>
 
     <div class="container">
-        <div class="card" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+        <div class="card" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             <div style="display: flex; flex-direction: column; justify-content: space-between;">
                 <div>
                     <h2>1. Controle da Aula</h2>
-                    <button onclick="iniciarAula()" style="width: 100%; padding: 12px;">⏱ Iniciar Aula (100s)</button>
+                    <button class="btn btn-primary" onclick="iniciarAula()" style="width: 100%; padding: 12px;">⏱ Iniciar Aula (100s)</button>
                 </div>
                 <p id="aula-status" class="status-box">Aula não iniciada.</p>
             </div>
@@ -82,84 +221,90 @@
         <div class="card">
             <h2>2. Cadastro de Alunos</h2>
             <div class="flex-row">
-                <button id="btn-capturar" onclick="capturarNovaTag()" style="width: 100%; padding: 12px; background: #2980b9;">📡 Capturar Nova Tag</button>
+                <button id="btn-capturar" class="btn" onclick="capturarNovaTag()" style="width: 100%; padding: 12px; background: #2980b9; color: white;">📡 Capturar Nova Tag</button>
             </div>
-            <input type="text" id="uid-input" placeholder="A UID da tag aparecerá aqui automaticamente..." readonly>
-            <input type="text" id="nome-input" placeholder="Digite o nome do aluno">
-            <div class="flex-row">
-                <button onclick="salvarAluno()">💾 Salvar no Banco</button>
+            <input type="text" id="uid-input" class="form-input" placeholder="A UID da tag aparecerá aqui automaticamente..." readonly>
+            <input type="text" id="nome-input" class="form-input" placeholder="Digite o nome do aluno">
+            <div class="flex-row" style="margin-bottom: 0;">
+                <button class="btn btn-secondary" onclick="salvarAluno()">💾 Salvar no Banco</button>
                 <span id="cadastro-feedback" class="text-muted"></span>
             </div>
         </div>
 
         <div class="card full-width">
-            <h2>Leituras no Sensor (Chamada em Tempo Real) <button onclick="carregarPresencas()" style="float: right;">Atualizar</button></h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID Reg.</th>
-                        <th>UID</th>
-                        <th>Nome</th>
-                        <th>Status</th>
-                        <th>Faltas Computadas</th>
-                    </tr>
-                </thead>
-                <tbody id="tabela-presencas"><tr><td colspan="5">Carregando...</td></tr></tbody>
-            </table>
+            <h2>Leituras no Sensor (Chamada em Tempo Real) <button class="btn btn-secondary btn-header" onclick="carregarPresencas()">Atualizar</button></h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID Reg.</th>
+                            <th>UID</th>
+                            <th>Nome</th>
+                            <th>Status</th>
+                            <th>Faltas Computadas</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabela-presencas"><tr><td colspan="5">Carregando...</td></tr></tbody>
+                </table>
+            </div>
         </div>
 
         <div class="card full-width">
-            <h2>Alunos Cadastrados <button onclick="carregarAlunos()" style="float: right;">Atualizar</button></h2>
-            <table>
-                <thead><tr><th>ID</th><th>UID</th><th>Nome</th></tr></thead>
-                <tbody id="tabela-alunos"><tr><td colspan="3">Carregando...</td></tr></tbody>
-            </table>
+            <h2>Alunos Cadastrados <button class="btn btn-secondary btn-header" onclick="carregarAlunos()">Atualizar</button></h2>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>ID</th><th>UID</th><th>Nome</th></tr></thead>
+                    <tbody id="tabela-alunos"><tr><td colspan="3">Carregando...</td></tr></tbody>
+                </table>
+            </div>
         </div>
 
-        <div class="card full-width" style="border-top: 3px solid var(--primary); background: #fdfdfd;">
+        <div class="card full-width" style="border-top: 3px solid var(--accent);">
             <h2>Estrutura Métrica de Faltas (Duração da Aula: 100 segundos)</h2>
-            <table class="mini-tabela">
-                <thead>
-                    <tr>
-                        <th>Bloco Vigente</th>
-                        <th>Tempo Decorrido</th>
-                        <th>Penalidade na Entrada (Atraso)</th>
-                        <th>Penalidade se Sair Nesse Bloco (Abandono)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><span class="badge-presente">Bloco 1</span></td>
-                        <td><b>0s até 24s</b></td>
-                        <td>0 faltas (Presente)</td>
-                        <td>+4 faltas (Perde a aula toda)</td>
-                    </tr>
-                    <tr>
-                        <td><span class="badge-atrasado" style="background:var(--warning)">Bloco 2</span></td>
-                        <td><b>25s até 49s</b></td>
-                        <td>1 falta (Atrasado)</td>
-                        <td>+3 faltas (Perde os blocos 2, 3 e 4)</td>
-                    </tr>
-                    <tr>
-                        <td><span class="badge-atrasado" style="background:var(--orange)">Bloco 3</span></td>
-                        <td><b>50s até 74s</b></td>
-                        <td>2 faltas (Atrasado)</td>
-                        <td>+2 faltas (Perde os blocos 3 e 4)</td>
-                    </tr>
-                    <tr>
-                        <td><span class="badge-ausente">Bloco 4</span></td>
-                        <td><b>75s até 99s</b></td>
-                        <td>3 faltas (Atrasado)</td>
-                        <td>+1 falta (Perde o bloco 4)</td>
-                    </tr>
-                    <tr>
-                        <td><span class="badge-presente" style="background:#2c3e50">Fim de Aula</span></td>
-                        <td><b>&ge; 100s</b></td>
-                        <td>Entrada Bloqueada</td>
-                        <td>+0 faltas (Cumpriu até o fim)</td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="table-wrap">
+                <table class="mini-tabela">
+                    <thead>
+                        <tr>
+                            <th>Bloco Vigente</th>
+                            <th>Tempo Decorrido</th>
+                            <th>Penalidade na Entrada (Atraso)</th>
+                            <th>Penalidade se Sair Nesse Bloco (Abandono)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge badge-presente">Bloco 1</span></td>
+                            <td><b>0s até 24s</b></td>
+                            <td>0 faltas (Presente)</td>
+                            <td>+4 faltas (Perde a aula toda)</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge badge-atrasado">Bloco 2</span></td>
+                            <td><b>25s até 49s</b></td>
+                            <td>1 falta (Atrasado)</td>
+                            <td>+3 faltas (Perde os blocos 2, 3 e 4)</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge badge-atrasado" style="color: var(--orange); background: rgba(211,84,0,0.15)">Bloco 3</span></td>
+                            <td><b>50s até 74s</b></td>
+                            <td>2 faltas (Atrasado)</td>
+                            <td>+2 faltas (Perde os blocos 3 e 4)</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge badge-ausente">Bloco 4</span></td>
+                            <td><b>75s até 99s</b></td>
+                            <td>3 faltas (Atrasado)</td>
+                            <td>+1 falta (Perde o bloco 4)</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge" style="background: var(--bg-elevated); color: var(--text-primary)">Fim de Aula</span></td>
+                            <td><b>&ge; 100s</b></td>
+                            <td>Entrada Bloqueada</td>
+                            <td>+0 faltas (Cumpriu até o fim)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
             <div class="nota-regra">
                 <strong>⚠️ Regra do Sistema (Cálculo Acumulativo):</strong> 
                 <code>Faltas Totais = Penalidade de Entrada + Penalidade de Saída</code> <em>(Limitado ao teto máximo de 4 faltas).</em>
@@ -183,9 +328,9 @@
                 if (segundosDecorridos >= 100) {
                     display.innerText = "100s";
                     statusBloco.innerText = "Aula Encerrada";
-                    statusBloco.style.color = "var(--danger)";
+                    statusBloco.style.color = "var(--red)";
                     barra.style.width = "100%";
-                    barra.style.backgroundColor = "var(--danger)";
+                    barra.style.backgroundColor = "var(--red)";
                     clearInterval(timerInterval);
                     return;
                 }
@@ -194,20 +339,20 @@
 
                 if (segundosDecorridos < 25) {
                     statusBloco.innerText = "Bloco 1: 0 Faltas";
-                    statusBloco.style.color = "var(--secondary)";
-                    barra.style.backgroundColor = "var(--secondary)";
+                    statusBloco.style.color = "var(--green)";
+                    barra.style.backgroundColor = "var(--green)";
                 } else if (segundosDecorridos < 50) {
                     statusBloco.innerText = "Bloco 2: +1 Falta";
-                    statusBloco.style.color = "var(--warning)";
-                    barra.style.backgroundColor = "var(--warning)";
+                    statusBloco.style.color = "var(--yellow)";
+                    barra.style.backgroundColor = "var(--yellow)";
                 } else if (segundosDecorridos < 74) {
                     statusBloco.innerText = "Bloco 3: +2 Faltas";
                     statusBloco.style.color = "var(--orange)";
                     barra.style.backgroundColor = "var(--orange)";
                 } else {
                     statusBloco.innerText = "Bloco 4: +3 Faltas";
-                    statusBloco.style.color = "var(--danger)";
-                    barra.style.backgroundColor = "var(--danger)";
+                    statusBloco.style.color = "var(--red)";
+                    barra.style.backgroundColor = "var(--red)";
                 }
             }, 1000);
         }
@@ -236,7 +381,7 @@
                 feedback.innerText = "📡 Sensor Pronto! Aproxime a tag no leitor...";
                 btn.disabled = true;
                 btn.innerText = "⏳ Aguardando leitura...";
-                btn.style.background = "#7f8c8d";
+                btn.style.background = "#475569";
 
                 let tentativas = 0;
                 const maxTentativas = 15; 
@@ -324,9 +469,9 @@
                     tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Nenhum aluno cadastrado.</td></tr>`;
                     return;
                 }
-                tbody.innerHTML = listaAlunosCache.map(a => `<tr><td>${a.id}</td><td>${a.uid}</td><td>${a.nome}</td></tr>`).join('');
+                tbody.innerHTML = listaAlunosCache.map(a => `<tr><td>${a.id}</td><td><span class="tag-id">${a.uid}</span></td><td class="student-name">${a.nome}</td></tr>`).join('');
             } catch (e) {
-                document.getElementById('tabela-alunos').innerHTML = `<tr><td colspan="3" style="color:var(--danger);">Erro ao buscar alunos.</td></tr>`;
+                document.getElementById('tabela-alunos').innerHTML = `<tr><td colspan="3" style="color:var(--red);">Erro ao buscar alunos.</td></tr>`;
             }
         }
 
@@ -358,9 +503,9 @@
                     return `
                         <tr>
                             <td>${p.id}</td>
-                            <td><code>${p.uid}</code></td>
-                            <td><b>${nomeAluno}</b></td>
-                            <td><span class="${badgeClass}">${p.status}</span></td>
+                            <td><span class="tag-id">${p.uid}</span></td>
+                            <td class="student-name"><b>${nomeAluno}</b></td>
+                            <td><span class="badge ${badgeClass}">${p.status}</span></td>
                             <td class="${classeFalta}">${totalFaltas} bloco(s) de falta</td>
                         </tr>`;
                 }).join('');
