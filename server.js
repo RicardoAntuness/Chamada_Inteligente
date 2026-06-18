@@ -16,9 +16,12 @@ app.use(cors({
 app.use(express.json());
 app.use(express.static('.'));
 
-// Variáveis de controle de estado global
+// =======================================================
+// VARIÁVEIS DE CONTROLE DE ESTADO GLOBAL
+// =======================================================
 let inicioAula = null; 
 let ultimaTagLida = null;
+let modoCadastroAtivo = false; // Controla se o sensor está lendo para presença ou para cadastro
 
 // Lógica de controle estrita por afastamento físico completo
 const ocupandoSensor = {}; 
@@ -77,9 +80,15 @@ function enviarComando(comando) {
 
 // Filtra e valida a aproximação física da tag no sensor ultrassônico
 async function processarLeitura(uid, distancia) {
-    ultimaTagLida = { uid };
-
     console.log(`[HARDWARE] Leitura Capturada -> Tag: ${uid} | Distância: ${distancia}cm`);
+
+    // INTERCEPTADOR: Se estamos em modo de cadastro, ignora o sistema de presença
+    if (modoCadastroAtivo) {
+        ultimaTagLida = { uid };
+        console.log(`[CADASTRO] Tag ${uid} guardada na memória para registro.`);
+        enviarComando("APROVADO"); // Opcional: Feedback sonoro de que a tag foi lida
+        return; 
+    }
 
     // Valida se o cartão foi completamente afastado do leitor
     if (distancia > 30) {
@@ -228,6 +237,8 @@ app.post("/aula/iniciar", async (req, res) => {
 
 // Envia sinal ao hardware informando que o sistema aguarda uma nova tag para cadastro
 app.post("/cadastro/iniciar", (req, res) => {
+    modoCadastroAtivo = true; // Ativa o modo interceptador
+    ultimaTagLida = null;     // Limpa o cache antigo
     console.log("[API] Comando recebido: MODO_CADASTRO acionado.");
     enviarComando("MODO_CADASTRO");
     return res.status(200).json({ mensagem: "Comando de modo cadastro enviado!" });
@@ -235,9 +246,11 @@ app.post("/cadastro/iniciar", (req, res) => {
 
 // Cancela o modo cadastro no hardware caso ocorra timeout no frontend
 app.post("/cadastro/cancelar", (req, res) => {
-    console.log("[API] Tempo limite esgotado. Cancelando MODO_CADASTRO no hardware.");
-    enviarComando("NEGADO");
-    return res.status(200).json({ mensagem: "Modo cadastro cancelado por timeout." });
+    modoCadastroAtivo = false; // Desativa o modo interceptador
+    ultimaTagLida = null;      // Limpa a memória
+    console.log("[API] Tempo limite esgotado ou cancelado. Cancelando MODO_CADASTRO.");
+    enviarComando("NEGADO");   // Feedback visual no arduino de cancelamento
+    return res.status(200).json({ mensagem: "Modo cadastro cancelado com sucesso." });
 });
 
 // Salva de forma persistente os dados de um novo aluno no banco de dados
@@ -246,19 +259,26 @@ app.post("/cadastro/salvar", async (req, res) => {
         const { uid, nome } = req.body;
         await pool.query(`INSERT INTO alunos (uid, nome) VALUES ($1, $2)`, [uid, nome]);
         enviarComando("CADASTRO_OK");
+        
+        modoCadastroAtivo = false; // Finalizou o cadastro, volta ao normal
+        ultimaTagLida = null;      // Limpa para a próxima vez
+        
         console.log(`[DATABASE] Novo aluno registrado -> Nome: ${nome} | Tag: ${uid}`);
         res.json({ sucesso: true, message: "Aluno cadastrado!" });
     } catch (error) {
         enviarComando("NEGADO");
+        modoCadastroAtivo = false; // Trava de segurança: volta ao normal mesmo em erro
         console.error("[DATABASE] Falha ao cadastrar aluno:", error.message);
         res.status(500).json({ erro: "Falha ao cadastrar." });
     }
 });
 
-// Polling do Frontend: Consulta a memória em busca da última tag lida para popular os inputs de cadastro
+// Polling do Frontend: Consulta a memória em busca da última tag lida para popular os inputs
 app.get("/cadastro/status", (req, res) => {
     res.json(ultimaTagLida || { uid: null });
-    ultimaTagLida = null; // Limpa o buffer de memória após o consumo
+    
+    // Deixamos a tag disponível no cache até o front-end chamar /salvar ou /cancelar.
+    // Assim o usuário não perde a leitura se o frontend pedir duas vezes acidentalmente.
 });
 
 // Retorna todos os alunos cadastrados no sistema
