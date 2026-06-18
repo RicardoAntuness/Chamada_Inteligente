@@ -19,6 +19,8 @@ app.use(express.static('.'));
 // Variáveis de controle
 let inicioAula = null; 
 let ultimaTagLida = null;
+
+// Lógica de controle baseada no aumento obrigatório de distância
 const ocupandoSensor = {}; 
 
 // =======================================================
@@ -80,18 +82,21 @@ async function processarLeitura(uid, distancia) {
     // Print no console para ver a leitura física em tempo real
     console.log(`[HARDWARE] Arduino leu a Tag: ${uid} | Distância: ${distancia}cm`);
 
-    // Regra de Saída do Sensor (Afastamento)
+    // VALIDAÇÃO PROPOSTA: Se a distância aumentou confirmadamente (> 30cm), liberamos a tag para nova leitura
     if (distancia > 30) {
         if (ocupandoSensor[uid]) {
-            console.log(`[SAÍDA FÍSICA] Aluno ${uid} se afastou do sensor.`);
+            console.log(`[SAÍDA FÍSICA] Aluno ${uid} afastou o cartão. Sensor liberado para este UID.`);
             delete ocupandoSensor[uid];
         }
         return { acao: "afastou", uid };
     }
 
-    // Regra de Aproximação
+    // Regra de Aproximação (Bater presença/saída)
     if (distancia >= 0 && distancia < 10) {
-        if (ocupandoSensor[uid]) return { acao: "ignorado_ja_ocupando", uid }; 
+        // Se a distância NÃO aumentou desde a última leitura válida desta tag, ignora completamente
+        if (ocupandoSensor[uid]) {
+            return { acao: "ignorado_distancia_nao_aumentou", uid }; 
+        }
 
         const alunoCheck = await pool.query(`SELECT id, nome FROM alunos WHERE uid = $1`, [uid]);
 
@@ -100,7 +105,9 @@ async function processarLeitura(uid, distancia) {
             return { acao: "negado", uid, motivo: "Aluno não cadastrado" };
         }
 
+        // Bloqueia a tag. Ela só aceitará nova leitura quando a distância aumentar (> 30cm)
         ocupandoSensor[uid] = true;
+        
         console.log(`[VALIDADO] Aluno ${alunoCheck.rows[0].nome}. Processando registro...`);
         const registro = await registrarPresencaMecanismo(uid);
         
