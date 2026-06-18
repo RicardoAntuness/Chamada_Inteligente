@@ -71,7 +71,7 @@ function enviarComando(comando) {
 }
 
 // =======================================================
-// 2. LÓGICA CENTRAL CORRIGIDA
+// 2. LÓGICA CENTRAL
 // =======================================================
 async function processarLeitura(uid, distancia) {
     // Registra a última tag lida para a rota de status de cadastro
@@ -89,7 +89,7 @@ async function processarLeitura(uid, distancia) {
         return { acao: "afastou", uid };
     }
 
-    // CORREÇÃO DA REGRA DE APROXIMAÇÃO: Incluído o ">= 0" para aceitar a leitura do sensor colado
+    // Regra de Aproximação
     if (distancia >= 0 && distancia < 10) {
         if (ocupandoSensor[uid]) return { acao: "ignorado_ja_ocupando", uid }; 
 
@@ -119,11 +119,8 @@ async function registrarPresencaMecanismo(uid) {
 
     const segundos = Math.floor((Date.now() - inicioAula) / 1000);
     const faltas = Math.min(Math.floor(segundos / 25), 4);
-    
-    // Alinhado com o frontend: Se tem mais de 0 blocos de atraso, calcula o status proporcional
     const status = faltas === 0 ? "PRESENTE" : "ATRASADO";
 
-    // CORREÇÃO: Utilizando a coluna correta "data_registro" mapeada no seu Postgres
     await pool.query(
         `INSERT INTO presencas (uid, status, faltas, data_registro) VALUES ($1, $2, $3, NOW())`,
         [uid, status, faltas]
@@ -163,10 +160,28 @@ app.post("/login", async (req, res) => {
     }
 });
 
-app.post("/aula/iniciar", (req, res) => {
-    inicioAula = Date.now();
-    console.log("Aula iniciada em:", new Date(inicioAula).toLocaleTimeString());
-    res.json({ mensagem: "Aula iniciada com sucesso!", inicio: inicioAula });
+// ROTA CORRIGIDA: Agora limpa dados anteriores de presenças ao reiniciar a aula
+app.post("/aula/iniciar", async (req, res) => {
+    try {
+        // 1. Limpa todas as presenças registradas no banco e reinicia IDs para 1
+        await pool.query("TRUNCATE TABLE presencas RESTART IDENTITY CASCADE;");
+        
+        // 2. Limpa cache de proximidade do sensor de proximidade físico
+        for (let key in ocupandoSensor) {
+            if (ocupandoSensor.hasOwnProperty(key)) {
+                delete ocupandoSensor[key];
+            }
+        }
+
+        // 3. Grava o timestamp de início da nova aula
+        inicioAula = Date.now();
+        console.log("Banco de presenças limpo. Aula iniciada em:", new Date(inicioAula).toLocaleTimeString());
+        
+        res.json({ mensagem: "Aula iniciada com sucesso! Leituras anteriores foram limpas.", inicio: inicioAula });
+    } catch (error) {
+        console.error("Erro ao iniciar nova aula no banco:", error.message);
+        res.status(500).json({ erro: "Falha ao limpar o histórico para iniciar a nova aula." });
+    }
 });
 
 app.post("/cadastro/iniciar", (req, res) => {
