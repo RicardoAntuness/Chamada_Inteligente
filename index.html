@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chamada Inteligente🧠</title>
+    <title>Chamada Inteligente</title>
     <style>
         /* ============================================================
            Design System — Chamada Inteligente
@@ -61,7 +61,7 @@
             -webkit-font-smoothing: antialiased;
         }
         
-        /* Ajuste e Alinhamento do Título Principal */
+        /* Ajuste, Alinhamento e Estilização com o Cérebro */
         h1 { 
             font-family: var(--font-ui);
             font-size: 2.25rem; 
@@ -70,6 +70,10 @@
             margin: 12px auto 28px auto; 
             color: var(--text-primary); 
             padding: 0 4px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-shadow: 0 0 15px rgba(56, 189, 248, 0.25); /* Glow sutil combinando com o sistema */
         }
         
         h2 { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 16px; }
@@ -208,7 +212,7 @@
 </head>
 <body>
 
-    <h1>Chamada Inteligente</h1>
+    <h1>🧠 Chamada Inteligente</h1>
 
     <div class="container">
         <div class="card" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
@@ -394,7 +398,7 @@
                 btn.innerText = "⏳ Aguardando leitura...";
                 btn.style.background = "#475569";
 
-                let tentativas = 0; // Corrigido erro de digitação do original (tentatived -> tentativas)
+                let tentativas = 0; 
                 const maxTentativas = 15; 
 
                 const loopVerificacao = setInterval(async () => {
