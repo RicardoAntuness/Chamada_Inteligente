@@ -8,7 +8,7 @@ const app = express();
 
 // CONFIGURAÇÃO DE CORS - Cole exatamente isto:
 app.use(cors({
-    origin: "http://10.1.24.27:5175", // A porta exata do seu Vite
+    origin: "http://10.1.24.27:5174", // A porta exata do seu Vite
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
 }));
@@ -49,11 +49,8 @@ function enviarComando(comando) {
 // ==========================================
 
 parser.on("data", async (linha) => {
-    console.log("=================================");
-    console.log("DADO RECEBIDO DO ARDUINO:");
-    console.log(linha);
-    console.log("=================================");
 
+    
     try {
         const texto = linha.trim();
         if (!texto.startsWith("{")) return; 
@@ -154,36 +151,13 @@ app.post("/cadastro/iniciar", (req, res) => {
 
 app.post("/cadastro/salvar", async (req, res) => {
     try {
-        console.log("=================================");
-        console.log("REQUISIÇÃO RECEBIDA");
-        console.log(req.body);
-        console.log("=================================");
-
         const { uid, nome } = req.body;
-
-        await pool.query(
-            `INSERT INTO alunos (uid, nome) VALUES ($1, $2)`,
-            [uid, nome]
-        );
-
-        console.log(`ALUNO SALVO: ${nome} (${uid})`);
-
+        await pool.query(`INSERT INTO alunos (uid, nome) VALUES ($1, $2)`, [uid, nome]);
         enviarComando("CADASTRO_OK");
-
-        res.json({
-            sucesso: true,
-            mensagem: "Aluno cadastrado!"
-        });
-
+        res.json({ sucesso: true, mensagem: "Aluno cadastrado!" });
     } catch (error) {
-        console.error("ERRO AO SALVAR:");
-        console.error(error);
-
         enviarComando("NEGADO");
-
-        res.status(500).json({
-            erro: error.message
-        });
+        res.status(500).json({ erro: "Falha ao cadastrar." });
     }
 });
 
