@@ -60,7 +60,18 @@
             padding: 24px;
             -webkit-font-smoothing: antialiased;
         }
-        h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 24px; color: var(--text-primary); }
+        
+        /* Ajuste e Alinhamento do Título Principal */
+        h1 { 
+            font-family: var(--font-ui);
+            font-size: 2.25rem; 
+            font-weight: 700; 
+            max-width: 1200px;
+            margin: 12px auto 28px auto; 
+            color: var(--text-primary); 
+            padding: 0 4px;
+        }
+        
         h2 { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 16px; }
 
         /* ── Layout Container ───────────────────────────────────── */
@@ -189,7 +200,7 @@
 
         .nota-regra { margin-top: 14px; padding: 12px; background-color: var(--bg-input); border-left: 4px solid var(--yellow); font-size: 0.85rem; border-radius: var(--radius-sm); color: var(--text-secondary); }
         
-        /* Scrollbar Costumizado */
+        /* Scrollbar Customizado */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -383,7 +394,7 @@
                 btn.innerText = "⏳ Aguardando leitura...";
                 btn.style.background = "#475569";
 
-                let tentatives = 0;
+                let tentativas = 0; // Corrigido erro de digitação do original (tentatived -> tentativas)
                 const maxTentativas = 15; 
 
                 const loopVerificacao = setInterval(async () => {
