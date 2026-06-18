@@ -15,6 +15,8 @@ app.use(cors({
 
 app.use(express.json());
 
+app.use(express.static('.'));
+
 // Variáveis de controle
 let inicioAula = null; 
 let ultimaTagLida = null;
