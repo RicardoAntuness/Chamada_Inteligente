@@ -77,6 +77,9 @@ async function processarLeitura(uid, distancia) {
     // Registra a última tag lida para a rota de status de cadastro
     ultimaTagLida = { uid };
 
+    // Print no console para ver a leitura física em tempo real
+    console.log(`[HARDWARE] Arduino leu a Tag: ${uid} | Distância: ${distancia}cm`);
+
     // Regra de Saída
     if (distancia > 30) {
         if (ocupandoSensor[uid]) {
@@ -196,6 +199,9 @@ app.post("/presenca", async (req, res) => {
 });
 
 app.get("/cadastro/status", (req, res) => {
+    // Print no console para ver o que o Postman está puxando
+    console.log(`[POSTMAN] Consultou a última Tag: ${ultimaTagLida ? ultimaTagLida.uid : "Nenhuma tag na memória"}`);
+    
     res.json(ultimaTagLida || { uid: null });
     ultimaTagLida = null; 
 });
