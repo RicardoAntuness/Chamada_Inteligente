@@ -8,13 +8,13 @@ const app = express();
 
 // CONFIGURAÇÃO DE CORS (Restrito aos métodos em uso pelo ecossistema)
 app.use(cors({
-    origin: true, 
-    methods: ["GET", "POST"],
-    credentials: true
+    origin: "*", // Permite qualquer origem durante o desenvolvimento
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-app.use(express.json());
-app.use(express.static('.'));
+// Adicione esta linha logo abaixo para tratar o pré-flight do navegador
+app.options('*', cors());
 
 // =======================================================
 // VARIÁVEIS DE CONTROLE DE ESTADO GLOBAL
