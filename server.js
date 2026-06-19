@@ -6,16 +6,11 @@ const { ReadlineParser } = require("@serialport/parser-readline");
 
 const app = express();
 
-// CONFIGURAÇÃO DE CORS (Restrito aos métodos em uso pelo ecossistema)
 app.use(cors({
-    origin: "*", // Permite qualquer origem durante o desenvolvimento
+    origin: "*", 
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"]
 }));
-
-// Adicione esta linha logo abaixo para tratar o pré-flight do navegador
-app.options('*', cors());
-
 // =======================================================
 // VARIÁVEIS DE CONTROLE DE ESTADO GLOBAL
 // =======================================================
