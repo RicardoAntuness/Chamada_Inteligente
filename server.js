@@ -283,11 +283,22 @@ app.get("/cadastro/status", (req, res) => {
 
 // Retorna todos os alunos cadastrados no sistema
 app.get("/alunos", async (req, res) => {
+    console.log(">>> ENTROU EM /alunos");
+
     try {
-        const result = await pool.query(`SELECT * FROM alunos`);
+        console.log(">>> ANTES DO SELECT");
+
+        const result = await pool.query("SELECT * FROM alunos");
+
+        console.log(">>> DEPOIS DO SELECT");
+
         res.json(result.rows);
     } catch (error) {
-        res.status(500).json({ erro: error.message });
+        console.error(">>> ERRO:", error);
+
+        res.status(500).json({
+            erro: error.message
+        });
     }
 });
 
