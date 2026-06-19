@@ -34,7 +34,7 @@ let parser = null;
 
 try {
     portaArduino = new SerialPort({
-        path: "/dev/ttyACM1", 
+        path: "/dev/ttyACM0", 
         baudRate: 9600
     });
 
