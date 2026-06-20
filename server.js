@@ -6,17 +6,19 @@ const { ReadlineParser } = require("@serialport/parser-readline");
 
 const app = express();
 
+// CONFIGURAÇÃO DE CORS (Restrito aos métodos em uso pelo ecossistema)
 app.use(cors({
-    origin: "*", 
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
+    origin: true, 
+    methods: ["GET", "POST"],
+    credentials: true
 }));
-// =======================================================
-// VARIÁVEIS DE CONTROLE DE ESTADO GLOBAL
-// =======================================================
+
+app.use(express.json());
+app.use(express.static('.'));
+
+// Variáveis de controle de estado global
 let inicioAula = null; 
 let ultimaTagLida = null;
-let modoCadastroAtivo = false; // Controla se o sensor está lendo para presença ou para cadastro
 
 // Lógica de controle estrita por afastamento físico completo
 const ocupandoSensor = {}; 
@@ -74,127 +76,41 @@ function enviarComando(comando) {
 // =======================================================
 
 // Filtra e valida a aproximação física da tag no sensor ultrassônico
-// Filtra e valida a aproximação física da tag no sensor ultrassônico
-async function processarLeitura(uidBruto, distancia) {
-    const uid = String(uidBruto).trim().toUpperCase(); 
+async function processarLeitura(uid, distancia) {
+    ultimaTagLida = { uid };
 
-    if (modoCadastroAtivo) {
-        ultimaTagLida = { uid };
-        console.log(`[CADASTRO] Tag ${uid} na memória.`);
-        enviarComando("APROVADO"); 
-        return; 
-    }
+    console.log(`[HARDWARE] Leitura Capturada -> Tag: ${uid} | Distância: ${distancia}cm`);
 
-    // AQUI ESTÁ O SEGREDO: Só libera o aluno para bater a tag de novo 
-    // quando ele afastar o cartão fisicamente para mais de 30cm.
+    // Valida se o cartão foi completamente afastado do leitor
     if (distancia > 30) {
-        if (ocupandoSensor[uid]) {
-            console.log(`[SENSOR] Cartão ${uid} retirado. Sistema pronto para nova leitura.`);
-            delete ocupandoSensor[uid]; 
+        if (ocupandoSensor[uid] === true) {
+            console.log(`[AUDITORIA] Aluno ${uid} afastando cartão. Aguardando liberação do sensor.`);
+            ocupandoSensor[uid] = "afastando"; 
         }
         return;
     }
 
-    if (distancia >= 0 && distancia <= 20) {
-        
-        // Se a trava está ativa, ignora as dezenas de leituras por segundo do Arduino
+    // Processa a aproximação intencional de presença
+    if (distancia >= 0 && distancia < 10) {
         if (ocupandoSensor[uid]) {
+            if (ocupandoSensor[uid] === "afastando") {
+                ocupandoSensor[uid] = true; 
+            }
             return; 
         }
 
-        // 1. Coloca a trava ANTES de ir pro banco
-        ocupandoSensor[uid] = true;
-
-        const alunoCheck = await pool.query(`SELECT id, nome FROM alunos WHERE UPPER(uid) = UPPER($1)`, [uid]);
+        const alunoCheck = await pool.query(`SELECT id, nome FROM alunos WHERE uid = $1`, [uid]);
 
         if (alunoCheck.rows.length === 0) {
             enviarComando("NEGADO");
-            console.log(`[AUDITORIA] Acesso Negado: Tag '${uid}' sem cadastro.`);
-            delete ocupandoSensor[uid]; // Tira a trava se deu erro, pro usuário tentar de novo
+            console.log(`[AUDITORIA] Acesso Negado: Tag ${uid} não possui cadastro.`);
             return;
         }
 
-        console.log(`[AUDITORIA] Tag reconhecida -> Aluno: ${alunoCheck.rows[0].nome}`);
+        ocupandoSensor[uid] = true;
         
-        // 2. Chama a função de banco de dados (que agora NÃO DELETA a trava)
+        console.log(`[AUDITORIA] Tag reconhecida com sucesso -> Aluno: ${alunoCheck.rows[0].nome}`);
         await registrarPresencaMecanismo(uid);
-    }
-}
-
-// Calcula matematicamente os blocos de falta
-async function registrarPresencaMecanismo(uid) {
-    if (!inicioAula) {
-        console.log(`[AUDITORIA] Registro Rejeitado: Aula não iniciada.`);
-        enviarComando("NEGADO");
-        delete ocupandoSensor[uid]; // Aula não começou, libera o sensor
-        return;
-    }
-
-    try {
-        const registroExistente = await pool.query(
-            "SELECT * FROM presencas WHERE uid = $1 ORDER BY id DESC LIMIT 1",
-            [uid]
-        );
-
-        if (registroExistente.rows.length > 0) {
-            const registroAtual = registroExistente.rows[0];
-
-            // ALUNO VOLTANDO PRA SALA
-            if (registroAtual.status === "SAIU") {
-                const segundos = Math.floor((Date.now() - inicioAula) / 1000);
-                const faltas = Math.min(Math.floor(segundos / 25), 4);
-                const status = faltas === 0 ? "PRESENTE" : "ATRASADO";
-
-                await pool.query(
-                    "UPDATE presencas SET status = $1, faltas = $2 WHERE id = $3",
-                    [status, faltas, registroAtual.id]
-                );
-                console.log(`[AUDITORIA] RE-ENTRADA: Aluno ${uid} | Status: ${status}`);
-                enviarComando("APROVADO");
-                // Trava mantida. Só sai quando ele afastar o braço.
-                return;
-            }
-
-            // ALUNO SAINDO DA SALA (Passando a tag pela segunda vez)
-            const segundosPresente = Math.floor((Date.now() - inicioAula) / 1000);
-            let faltasPeloAbandono = 0;
-
-            if (segundosPresente < 25) faltasPeloAbandono = 4;
-            else if (segundosPresente < 50) faltasPeloAbandono = 3;
-            else if (segundosPresente < 75) faltasPeloAbandono = 2;
-            else if (segundosPresente < 100) faltasPeloAbandono = 1;
-
-            let faltasTotaisAtualizadas = Math.min(registroAtual.faltas + faltasPeloAbandono, 4);
-
-            await pool.query(
-                "UPDATE presencas SET status = $1, faltas = $2 WHERE id = $3",
-                ["SAIU", faltasTotaisAtualizadas, registroAtual.id]
-            );
-
-            console.log(`[AUDITORIA] SAÍDA: Aluno ${uid} abandonou a sala. Status atualizado para SAIU. Total Faltas: ${faltasTotaisAtualizadas}`);
-            enviarComando("APROVADO"); 
-            // Trava mantida. Só sai quando ele afastar o braço.
-            return;
-        }
-
-        // PRIMEIRA ENTRADA DO ALUNO NO DIA
-        const segundos = Math.floor((Date.now() - inicioAula) / 1000);
-        const faltas = Math.min(Math.floor(segundos / 25), 4);
-        const status = faltas === 0 ? "PRESENTE" : "ATRASADO";
-
-        await pool.query(
-            `INSERT INTO presencas (uid, status, faltas, data_registro) VALUES ($1, $2, $3, NOW())`,
-            [uid, status, faltas]
-        );
-
-        console.log(`[AUDITORIA] ENTRADA: Aluno ${uid} registrou primeira entrada. Status: ${status}`);
-        enviarComando("APROVADO");
-        // Trava mantida. Só sai quando ele afastar o braço.
-
-    } catch (error) {
-        console.error("[DATABASE] Erro crítico no mecanismo de presença/saída:", error.message);
-        enviarComando("NEGADO");
-        delete ocupandoSensor[uid]; // Se der erro de SQL, destrava para tentar de novo
     }
 }
 
@@ -312,8 +228,6 @@ app.post("/aula/iniciar", async (req, res) => {
 
 // Envia sinal ao hardware informando que o sistema aguarda uma nova tag para cadastro
 app.post("/cadastro/iniciar", (req, res) => {
-    modoCadastroAtivo = true; // Ativa o modo interceptador
-    ultimaTagLida = null;     // Limpa o cache antigo
     console.log("[API] Comando recebido: MODO_CADASTRO acionado.");
     enviarComando("MODO_CADASTRO");
     return res.status(200).json({ mensagem: "Comando de modo cadastro enviado!" });
@@ -321,11 +235,9 @@ app.post("/cadastro/iniciar", (req, res) => {
 
 // Cancela o modo cadastro no hardware caso ocorra timeout no frontend
 app.post("/cadastro/cancelar", (req, res) => {
-    modoCadastroAtivo = false; // Desativa o modo interceptador
-    ultimaTagLida = null;      // Limpa a memória
-    console.log("[API] Tempo limite esgotado ou cancelado. Cancelando MODO_CADASTRO.");
-    enviarComando("NEGADO");   // Feedback visual no arduino de cancelamento
-    return res.status(200).json({ mensagem: "Modo cadastro cancelado com sucesso." });
+    console.log("[API] Tempo limite esgotado. Cancelando MODO_CADASTRO no hardware.");
+    enviarComando("NEGADO");
+    return res.status(200).json({ mensagem: "Modo cadastro cancelado por timeout." });
 });
 
 // Salva de forma persistente os dados de um novo aluno no banco de dados
@@ -334,72 +246,38 @@ app.post("/cadastro/salvar", async (req, res) => {
         const { uid, nome } = req.body;
         await pool.query(`INSERT INTO alunos (uid, nome) VALUES ($1, $2)`, [uid, nome]);
         enviarComando("CADASTRO_OK");
-        
-        modoCadastroAtivo = false; // Finalizou o cadastro, volta ao normal
-        ultimaTagLida = null;      // Limpa para a próxima vez
-        
         console.log(`[DATABASE] Novo aluno registrado -> Nome: ${nome} | Tag: ${uid}`);
         res.json({ sucesso: true, message: "Aluno cadastrado!" });
     } catch (error) {
         enviarComando("NEGADO");
-        modoCadastroAtivo = false; // Trava de segurança: volta ao normal mesmo em erro
         console.error("[DATABASE] Falha ao cadastrar aluno:", error.message);
         res.status(500).json({ erro: "Falha ao cadastrar." });
     }
 });
 
-// Polling do Frontend: Consulta a memória em busca da última tag lida para popular os inputs
+// Polling do Frontend: Consulta a memória em busca da última tag lida para popular os inputs de cadastro
 app.get("/cadastro/status", (req, res) => {
     res.json(ultimaTagLida || { uid: null });
-    
-    // Deixamos a tag disponível no cache até o front-end chamar /salvar ou /cancelar.
-    // Assim o usuário não perde a leitura se o frontend pedir duas vezes acidentalmente.
+    ultimaTagLida = null; // Limpa o buffer de memória após o consumo
 });
 
 // Retorna todos os alunos cadastrados no sistema
 app.get("/alunos", async (req, res) => {
-    console.log(">>> ENTROU EM /alunos");
-
     try {
-        console.log(">>> ANTES DO SELECT");
-
-        const result = await pool.query("SELECT * FROM alunos");
-
-        console.log(">>> DEPOIS DO SELECT");
-
+        const result = await pool.query(`SELECT * FROM alunos`);
         res.json(result.rows);
     } catch (error) {
-        console.error(">>> ERRO:", error);
-
-        res.status(500).json({
-            erro: error.message
-        });
+        res.status(500).json({ erro: error.message });
     }
 });
 
 // Retorna o relatório em tempo real do diário de chamada
 app.get("/presencas", async (req, res) => {
     try {
-        const result = await pool.query(`
-            SELECT
-                p.id,
-                p.uid,
-                a.nome,
-                p.status,
-                p.faltas,
-                p.data_registro
-            FROM presencas p
-            LEFT JOIN alunos a
-                ON a.uid = p.uid
-            ORDER BY p.id DESC
-        `);
-
+        const result = await pool.query(`SELECT * FROM presencas ORDER BY id DESC`);
         res.json(result.rows);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            erro: error.message
-        });
+        res.status(500).json({ erro: error.message });
     }
 });
 
