@@ -59,7 +59,10 @@ try {
     console.error("[SYSTEM] Erro crítico ao inicializar interface Serial:", error.message);
 }
 
-// Envia comandos de feedback visual/sonoro para o Arduino
+/**
+ * Envia comandos de feedback visual/sonoro para o Arduino via comunicação serial.
+ * @param {string} comando - Comando a ser interpretado pelo hardware (ex: "APROVADO", "NEGADO", "MODO_CADASTRO", "CADASTRO_OK").
+ */
 function enviarComando(comando) {
     const json = JSON.stringify({ comando }) + "\n";
     
@@ -75,7 +78,12 @@ function enviarComando(comando) {
 // 2. LÓGICA CENTRAL DE FLUXO E REGRAS DE NEGÓCIO
 // =======================================================
 
-// Filtra e valida a aproximação física da tag no sensor ultrassônico
+/**
+ * Filtra e valida a aproximação física da tag RFID com base na distância medida pelo sensor ultrassônico.
+ * Garante que uma mesma leitura não seja registrada múltiplas vezes em sequência sem que o cartão seja previamente afastado.
+ * @param {string} uid - Identificador único do cartão RFID.
+ * @param {number} distancia - Distância em centímetros lida pelo sensor ultrassônico.
+ */
 async function processarLeitura(uid, distancia) {
     ultimaTagLida = { uid };
 
@@ -114,7 +122,10 @@ async function processarLeitura(uid, distancia) {
     }
 }
 
-// Calcula matematicamente os blocos de falta por entrada tardia ou abandono precoce
+/**
+ * Calcula matematicamente os blocos de falta e registra as entradas, saídas ou re-entradas do aluno no banco de dados.
+ * @param {string} uid - Identificador único do cartão RFID do aluno.
+ */
 async function registrarPresencaMecanismo(uid) {
     if (!inicioAula) {
         console.log(`[AUDITORIA] Registro Rejeitado: Tentativa de leitura da Tag ${uid} antes do início formal da aula.`);
@@ -205,7 +216,10 @@ async function registrarPresencaMecanismo(uid) {
 // 3. ROTAS ATIVAS DA API
 // =======================================================
 
-// Inicializa o cronômetro da aula corrente e reseta a tabela de presença diária
+/**
+ * @route POST /aula/iniciar
+ * @description Inicializa o cronômetro da aula corrente, reseta a tabela de presença diária e limpa o buffer de ocupação dos sensores.
+ */
 app.post("/aula/iniciar", async (req, res) => {
     try {
         await pool.query("TRUNCATE TABLE presencas RESTART IDENTITY CASCADE;");
@@ -226,21 +240,30 @@ app.post("/aula/iniciar", async (req, res) => {
     }
 });
 
-// Envia sinal ao hardware informando que o sistema aguarda uma nova tag para cadastro
+/**
+ * @route POST /cadastro/iniciar
+ * @description Envia sinal ao hardware informando que o sistema aguarda a aproximação de uma nova tag RFID para cadastro.
+ */
 app.post("/cadastro/iniciar", (req, res) => {
     console.log("[API] Comando recebido: MODO_CADASTRO acionado.");
     enviarComando("MODO_CADASTRO");
     return res.status(200).json({ mensagem: "Comando de modo cadastro enviado!" });
 });
 
-// Cancela o modo cadastro no hardware caso ocorra timeout no frontend
+/**
+ * @route POST /cadastro/cancelar
+ * @description Cancela o modo cadastro no hardware caso ocorra timeout no frontend.
+ */
 app.post("/cadastro/cancelar", (req, res) => {
     console.log("[API] Tempo limite esgotado. Cancelando MODO_CADASTRO no hardware.");
     enviarComando("NEGADO");
     return res.status(200).json({ mensagem: "Modo cadastro cancelado por timeout." });
 });
 
-// Salva de forma persistente os dados de um novo aluno no banco de dados
+/**
+ * @route POST /cadastro/salvar
+ * @description Salva de forma persistente os dados recebidos (uid e nome do aluno) no banco de dados.
+ */
 app.post("/cadastro/salvar", async (req, res) => {
     try {
         const { uid, nome } = req.body;
@@ -255,13 +278,19 @@ app.post("/cadastro/salvar", async (req, res) => {
     }
 });
 
-// Polling do Frontend: Consulta a memória em busca da última tag lida para popular os inputs de cadastro
+/**
+ * @route GET /cadastro/status
+ * @description Polling do Frontend: Consulta a memória do backend em busca da última tag lida pelo sensor para popular os inputs de cadastro. Após o consumo, a memória é limpa.
+ */
 app.get("/cadastro/status", (req, res) => {
     res.json(ultimaTagLida || { uid: null });
     ultimaTagLida = null; // Limpa o buffer de memória após o consumo
 });
 
-// Retorna todos os alunos cadastrados no sistema
+/**
+ * @route GET /alunos
+ * @description Retorna a lista de todos os alunos cadastrados no sistema.
+ */
 app.get("/alunos", async (req, res) => {
     try {
         const result = await pool.query(`SELECT * FROM alunos`);
@@ -271,7 +300,10 @@ app.get("/alunos", async (req, res) => {
     }
 });
 
-// Retorna o relatório em tempo real do diário de chamada
+/**
+ * @route GET /presencas
+ * @description Retorna o relatório em tempo real do diário de chamada listando as presenças ordenadas pelas mais recentes.
+ */
 app.get("/presencas", async (req, res) => {
     try {
         const result = await pool.query(`SELECT * FROM presencas ORDER BY id DESC`);
